@@ -104,6 +104,31 @@ def parse_query_for_dates(user_prompt):
         # Return None if no date is found in the query
         return None
 
+def generate_story(extracted_data):
+    """
+    This function takes the extracted event details and turns it into a full, human-readable story.
+    It uses the AI to summarize the data into a coherent paragraph or story.
+    """
+    # Format the extracted event data for better story context
+    prompt = (
+        f"Please summarize the following event details into a coherent narrative so I can review what I did back then. Your response should be limited to 100 words:\n\n{extracted_data}\n\n"
+        "Ensure that the summary is human-readable and flows like a natural narrative. Don't make the contents overly flowery. Keep it mostly matter of fact and don't extrapolate data which isn't given. But do include and make use of ALL data you do have. It can be upto 100 words but it doesn't have to be."
+    )
+    
+    # Call OpenAI's API to generate a story
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "You are an assistant that summarizes event details into a coherent story."},
+            {"role": "user", "content": prompt}
+        ],
+        max_tokens=350  # Limit the AI response to ~100 words (tokens)
+    )
+
+    # Extract and return the AI-generated story
+    story = response['choices'][0]['message']['content'].strip()
+    return story
+
 def process_query(user_prompt):
     extracted_date = extract_date_from_prompt(user_prompt)
     logging.debug(f"Extracted date for query: {extracted_date}")
@@ -111,7 +136,6 @@ def process_query(user_prompt):
     if extracted_date:
         results = []
 
-        # Handle the case where user only provides a month-year (like "December 2024")
         if len(extracted_date.split()) == 2:  # month and year format, e.g. "December 2024"
             # Extract month and year, convert month name to number (e.g., "December" -> "12")
             month_str, year_str = extracted_date.split()
@@ -119,20 +143,17 @@ def process_query(user_prompt):
             extracted_month_year = f"{month_number:02d}-{year_str}"
             logging.debug(f"Formatted month-year for query: {extracted_month_year}")
 
-            # Query the database with the formatted month-year
             for entry in session.query(Transcript).filter(func.strftime('%m-%Y', Transcript.timestamp) == extracted_month_year).all():
                 logging.debug(f"Checking Transcript ID: {entry.id}, Timestamp: {entry.timestamp}, Content: {entry.content}")
                 result = extract_meaningful_info(entry.content, user_prompt)
                 results.append(result)
 
-        else:  # This means we have a full date like "December 3, 2024"
-            # Try to convert it into a valid date (YYYY-MM-DD)
+        else:  # Full date like "December 3, 2024"
             try:
                 extracted_date_obj = datetime.strptime(extracted_date, "%B %d, %Y")  # "December 3, 2024"
                 extracted_date_formatted = extracted_date_obj.strftime("%Y-%m-%d")  # "2024-12-03"
                 logging.debug(f"Formatted date for query: {extracted_date_formatted}")
 
-                # Query the database with the formatted date
                 for entry in session.query(Transcript).filter(func.strftime('%Y-%m-%d', Transcript.timestamp) == extracted_date_formatted).all():
                     logging.debug(f"Checking Transcript ID: {entry.id}, Timestamp: {entry.timestamp}, Content: {entry.content}")
                     result = extract_meaningful_info(entry.content, user_prompt)
@@ -142,8 +163,15 @@ def process_query(user_prompt):
                 logging.error(f"Date format conversion error: {e}")
                 return "Invalid date format. Please try again with a valid date."
 
+        # After collecting results, we need to summarize them in human-readable text.
         if results:
-            return " ".join(" ".join(results).split()[:100])  # Limit to 100 words for brevity
+            # Combine the results and limit to 100 words
+            combined_results = " ".join(results)
+
+            # Generate a human-readable story (pass results to AI)
+            story = generate_story(combined_results)
+
+            return f"Story Summary: {story}"
         else:
             logging.debug("No results found for the extracted date.")
             return f"No events found for {extracted_date}."
@@ -152,13 +180,12 @@ def process_query(user_prompt):
         return "Sorry, I could not understand your query."
 
 def extract_meaningful_info(transcript, user_prompt):
+    # Assuming the AI response is a well-formed JSON string.
     logging.debug(f"Processing transcript: {transcript[:50]}...")  # Log first 50 characters of transcript
-    logging.debug(f"User Prompt: {user_prompt}")  # Log user prompt
 
     refined_prompt = (
         "You are an assistant that extracts key details from a given text. "
         "Please format the extracted information into a clean, strictly valid JSON format. "
-        "Ensure the JSON is complete, with no extra commas, improper quotation marks, or missing values. "
         "Here are the categories to focus on: "
         "1) Event details (date, time, subject), "
         "2) People involved (names, roles), "
@@ -171,9 +198,6 @@ def extract_meaningful_info(transcript, user_prompt):
         "Do not include any extra text outside of the JSON structure or I will discard your response."
     )
 
-    logging.debug(f"Refined Prompt for AI: {refined_prompt}")  # Log the exact prompt sent to AI
-
-    # Call OpenAI's API with the enhanced prompt
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[
@@ -182,12 +206,17 @@ def extract_meaningful_info(transcript, user_prompt):
         ],
         max_tokens=200
     )
-
-    # Log the API response for debugging
-    logging.debug(f"OpenAI Response: {response['choices'][0]['message']['content']}")
     
-    # Return the cleaned result
-    return response["choices"][0]["message"]["content"].strip()
+    # Parse the response (assuming it's valid JSON)
+    response_text = response['choices'][0]['message']['content']
+    try:
+        response_json = json.loads(response_text)
+        # Extract the relevant fields from the JSON
+        summary = f"Event details: {response_json.get('Event details', {}).get('subject', 'N/A')}."
+        return summary
+    except json.JSONDecodeError as e:
+        logging.error(f"Error decoding response JSON: {e}")
+        return "Error processing the response."
 
 def safe_parse_json(text):
     """Attempt to parse the result and fix common issues."""
