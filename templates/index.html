@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transcripts</title>
+</head>
+<body>
+    <h1>All Transcripts</h1>
+    <table border="1" style="width: 100%; text-align: left;">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Content</th>
+                <th>Extracted Data</th>
+                <th>Timestamp</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for transcript in transcripts %}
+            <tr>
+                <td>{{ transcript.id }}</td>
+                <td>{{ transcript.content }}</td>
+                <td>{{ transcript.extracted_data }}</td>
+                <td>{{ transcript.timestamp }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

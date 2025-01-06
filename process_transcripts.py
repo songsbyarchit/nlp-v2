@@ -5,6 +5,8 @@ import json
 from sqlalchemy import create_engine, Column, Integer, Text, DateTime
 from sqlalchemy.orm import sessionmaker, declarative_base
 from datetime import datetime, timezone
+from flask import Flask, render_template
+import threading
 
 # SQLAlchemy setup
 Base = declarative_base()
@@ -31,10 +33,20 @@ load_dotenv()
 # Set OpenAI API key
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
+app = Flask(__name__)
+
 # Function to load transcripts from a JSON file
 def load_transcripts(file_path="transcripts.json"):
     with open(file_path, "r") as f:
         return json.load(f)
+
+@app.route("/")
+def index():
+    # Query all rows from the database
+    transcripts = session.query(Transcript).all()
+    
+    # Pass the data to the template
+    return render_template("index.html", transcripts=transcripts)
 
 # Function to extract meaningful information
 def extract_meaningful_info(transcript):
@@ -58,21 +70,29 @@ def extract_meaningful_info(transcript):
 transcripts_data = load_transcripts()
 
 # Extract and store meaningful information in the database
+# Extract and store meaningful information in the database
 for entry in transcripts_data:
     transcript = entry["content"]
-    result = extract_meaningful_info(transcript)
     
-    # Strip and parse JSON response
+    # Check if transcript content already exists in the database
+    existing_entry = session.query(Transcript).filter_by(content=transcript).first()
+    if existing_entry:
+        print(f"Transcript {entry['id']} already exists in the database. Skipping.")
+        continue
+
+    print(f"Processing Transcript {entry['id']}...")  # Debugging line
+
+    # Process and add new transcript
+    result = extract_meaningful_info(transcript)
     try:
         parsed_data = json.loads(result.strip())  # Ensure clean parsing
-        # Save transcript and extracted data to database
         new_entry = Transcript(
             content=transcript,
             extracted_data=json.dumps(parsed_data),  # Store as JSON string
             timestamp=datetime.now(timezone.utc)
         )
         session.add(new_entry)
-        print(f"Transcript {entry['id']} processed and added to the database.")
+        print(f"Transcript {entry['id']} processed and added to the database.")  # Debugging line
     except json.JSONDecodeError as e:
         print(f"Error parsing JSON for Transcript {entry['id']}: {e}")
         continue
@@ -80,3 +100,6 @@ for entry in transcripts_data:
 # Commit all changes to the database
 session.commit()
 print("All transcripts have been saved to the database.")
+
+if __name__ == "__main__":
+    app.run(debug=True)
