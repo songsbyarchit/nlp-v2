@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from flask import Flask, render_template
 import threading
 import logging
+from generate_timestamps import generate_sample_timestamps
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -17,13 +18,15 @@ engine = create_engine("sqlite:///transcripts.db")
 Session = sessionmaker(bind=engine)
 session = Session()
 
+timestamps = generate_sample_timestamps()  # Get the list of timestamps
+
 # Define Transcript model
 class Transcript(Base):
     __tablename__ = "transcripts"
     id = Column(Integer, primary_key=True)
     content = Column(Text, nullable=False)
     extracted_data = Column(Text, nullable=False)
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, nullable=False)  # Add this line for the timestamp column
 
 # Create the database table
 Base.metadata.create_all(engine)
@@ -97,8 +100,7 @@ def safe_parse_json(text):
 transcripts_data = load_transcripts()
 
 # Extract and store meaningful information in the database
-# Extract and store meaningful information in the database
-for entry in transcripts_data:
+for entry_index, entry in enumerate(transcripts_data):  # Use enumerate to get entry_index
     transcript = entry["content"]
     
     # Check if transcript content already exists in the database
@@ -117,10 +119,13 @@ for entry in transcripts_data:
 
     # Check if parsing was successful before proceeding
     if parsed_data:
+        # Use the entry_index to pick the correct timestamp
+        timestamp_obj = datetime.strptime(timestamps[entry_index], "%Y-%m-%d %H:%M:%S")
+
         new_entry = Transcript(
             content=transcript,
             extracted_data=json.dumps(parsed_data),  # Store as JSON string
-            timestamp=datetime.now(timezone.utc)
+            timestamp=timestamp_obj  # Use the datetime object instead of the string
         )
         session.add(new_entry)
         logging.info(f"Transcript {entry['id']} processed and added to the database successfully.")
