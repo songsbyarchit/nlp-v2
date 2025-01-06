@@ -2,14 +2,14 @@ import random
 from datetime import datetime, timedelta
 
 def generate_sample_timestamps():
-    # Set the start date (December 1, 2024)
-    start_date = datetime(2024, 12, 1)
+    # Set the start date to January 1, 2024
+    start_date = datetime(2024, 1, 1)
 
-    # Generate 27 sample timestamps, one for each day from Dec 1 to Dec 27
+    # Generate a timestamp for every day of 2024
     sample_timestamps = []
 
-    for day in range(27):
-        # Get a random time for each day (from 00:00 to 23:59)
+    for day in range(366):  # 2024 is a leap year, so 366 days
+        # Randomize time of day (hours, minutes, seconds)
         random_hour = random.randint(0, 23)
         random_minute = random.randint(0, 59)
         random_second = random.randint(0, 59)

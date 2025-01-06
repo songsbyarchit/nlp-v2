@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from flask import Flask, render_template, request
 import threading
 import logging
+import pprint  # For pretty-printing data
 import re
 from sqlalchemy import func
 from generate_timestamps import generate_sample_timestamps
@@ -57,33 +58,39 @@ def index():
     return render_template("index.html", transcripts=transcripts)
 
 def extract_date_from_prompt(user_prompt):
+    """
+    Use OpenAI to dynamically extract and normalize date ranges from a user query.
+    Handles typos, informal formats, quarters, and half-years.
+    """
     logging.debug(f"User Prompt: {user_prompt}")  # Log user prompt
 
-    date_found = None
-    current_date = datetime.now()
-    current_year = current_date.year
+    # Refined prompt to query OpenAI
+    refined_prompt = (
+        "You are an assistant that extracts specific dates or date ranges from queries. "
+        "Handle flexible formats such as '9Dec', 'dec 9th', 'Q1', 'H1', or typos like '9 decenbr'. "
+        "Output in one of the following formats:\n"
+        "1. 'YYYY-MM-DD' for a single date.\n"
+        "2. 'YYYY-MM-DD to YYYY-MM-DD' for a range.\n\n"
+        f"Query: {user_prompt}"
+    )
 
-    # If it's before December, the latest December was last year
-    if current_date.month < 12:
-        latest_december_year = current_year - 1
-    else:
-        latest_december_year = current_year
-
-    date_match = re.search(r"(december (\d{1,2})(st|nd|rd|th)?(?:, (\d{4}))?)", user_prompt, re.IGNORECASE)
-    
-    if date_match:
-        day = date_match.group(2)
-        year = date_match.group(4) if date_match.group(4) else latest_december_year
-        date_found = f"december {day}, {year}"
-        logging.debug(f"Extracted Date: {date_found}")
-    elif re.search(r"december", user_prompt, re.IGNORECASE):
-        date_found = f"december {latest_december_year}"
-        logging.debug(f"Extracted Month Only: {date_found}")
-
-    if not date_found:
-        logging.debug("No date extracted from user prompt.")
-    
-    return date_found
+    # Call OpenAI API to extract date or range
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You extract date ranges from text queries."},
+                {"role": "user", "content": refined_prompt}
+            ],
+            max_tokens=50,  # Keep response concise
+            temperature=0  # Ensure deterministic output
+        )
+        extracted_date = response['choices'][0]['message']['content'].strip()
+        logging.debug(f"Extracted Date/Range: {extracted_date}")
+        return extracted_date
+    except Exception as e:
+        logging.error(f"Error extracting date from prompt: {e}")
+        return None
 
 def parse_query_for_dates(user_prompt):
     # Basic regex to match date-related queries, e.g., "December 3rd", "second week of December 2024"
@@ -122,7 +129,7 @@ def generate_story(extracted_data):
             {"role": "system", "content": "You are an assistant that summarizes event details into a coherent story."},
             {"role": "user", "content": prompt}
         ],
-        max_tokens=350  # Limit the AI response to ~100 words (tokens)
+        max_tokens=500  # Limit the AI response to ~100 words (tokens)
     )
 
     # Extract and return the AI-generated story
@@ -184,18 +191,31 @@ def extract_meaningful_info(transcript, user_prompt):
     logging.debug(f"Processing transcript: {transcript[:50]}...")  # Log first 50 characters of transcript
 
     refined_prompt = (
-        "You are an assistant that extracts key details from a given text. "
-        "Please format the extracted information into a clean, strictly valid JSON format. "
-        "Here are the categories to focus on: "
-        "1) Event details (date, time, subject), "
-        "2) People involved (names, roles), "
-        "3) Emotions (e.g., happy, sad, excited), "
-        "4) Outcomes or actions (e.g., tasks completed, next steps), "
-        "5) Memorable moments (significant or notable events). "
-        "Your task is to extract the relevant information from the transcript, "
-        "but also match the date range or event details based on the following query: "
-        f"User's query: {user_prompt}. "
-        "Do not include any extra text outside of the JSON structure or I will discard your response."
+        "You are an assistant that extracts key details from a given text and formats them into a clean, strictly valid JSON format. "
+        "Please focus on capturing as much important information as possible and organize it under these categories: "
+        "1) Event details: Include purpose, specific activities, timing, topics discussed, and any relevant descriptions. "
+        "2) People involved: Include names, roles, relationships, and their status or contributions. "
+        "3) Emotions: Capture both specific emotions (e.g., happy, frustrated) and transitions (e.g., initial and post-event feelings). "
+        "4) Outcomes or actions: Highlight changes, decisions, completed tasks, or next steps taken. "
+        "5) Memorable moments: Include significant highlights or anecdotes. "
+        "6) Timing: Specify when the event occurred (e.g., morning, afternoon, evening, exact time)."
+        "7) Relationships: Describe the relationship between people involved (e.g., family, professional, friend). Include any notable dynamics or history."
+        "8) Multi-step emotions: Track how emotions changed before, during, and after the event (e.g., 'Feeling tired' → 'Feeling better')."
+        "9) Outcomes linked to emotions: Highlight how specific actions or decisions were influenced by emotions (e.g., 'cleared mind' after a walk)."
+        "Make sure all critical information is captured and nothing important is omitted. "
+        "Here’s an example of the output format:\n\n"
+        '{\n'
+        '  "Event details": {\n'
+        '    "Meeting purpose": "Discuss the new project launch",\n'
+        '    "Topics discussed": ["Timelines", "Responsibilities", "Next steps"]\n'
+        '  },\n'
+        '  "People involved": ["Sarah"],\n'
+        '  "Emotions": ["Positive", "Productive"],\n'
+        '  "Outcomes or actions": "Discussion on timelines, responsibilities, and next steps",\n'
+        '  "Memorable moments": "Great meeting"\n'
+        '}\n\n'
+        "Text to analyze:\n"
+        f"{transcript}"
     )
 
     response = openai.ChatCompletion.create(
@@ -204,7 +224,7 @@ def extract_meaningful_info(transcript, user_prompt):
             {"role": "system", "content": "You are an assistant that extracts key details from text and formats them as JSON."},
             {"role": "user", "content": f"{refined_prompt}\n\nText:\n{transcript}"}
         ],
-        max_tokens=200
+        max_tokens=4096
     )
     
     # Parse the response (assuming it's valid JSON)
@@ -212,7 +232,7 @@ def extract_meaningful_info(transcript, user_prompt):
     try:
         response_json = json.loads(response_text)
         # Extract the relevant fields from the JSON
-        summary = f"Event details: {response_json.get('Event details', {}).get('subject', 'N/A')}."
+        summary = json.dumps(response_json, indent=2)
         return summary
     except json.JSONDecodeError as e:
         logging.error(f"Error decoding response JSON: {e}")
@@ -236,7 +256,6 @@ def safe_parse_json(text):
 # Load transcripts from file
 transcripts_data = load_transcripts()
 
-# Extract and store meaningful information in the database
 for entry_index, entry in enumerate(transcripts_data):  # Use enumerate to get entry_index
     transcript = entry["content"]
     
@@ -244,9 +263,10 @@ for entry_index, entry in enumerate(transcripts_data):  # Use enumerate to get e
     existing_entry = session.query(Transcript).filter_by(content=transcript).first()
     if existing_entry:
         logging.info(f"Transcript {entry['id']} already exists in the database. Skipping processing.")
+        print("\n")  # Add a blank line for readability
         continue
 
-    logging.info(f"Processing Transcript {entry['id']}...")  # Debugging line
+    logging.info(f"Processing Transcript {entry['id']}...\n")  # Debugging line with a blank line after it
     
     user_prompt = "Default query for processing all transcripts"  # Or leave it as empty ""
     # Process and add new transcript
@@ -266,14 +286,25 @@ for entry_index, entry in enumerate(transcripts_data):  # Use enumerate to get e
             timestamp=timestamp_obj  # Use the datetime object instead of the string
         )
         session.add(new_entry)
-        logging.info(f"Transcript {entry['id']} processed and added to the database successfully.")
+
+        # Log what was added in a pretty format
+        print("\n--- New Transcript Added to Database ---")
+        pprint.pprint({
+            "Content": transcript,
+            "Extracted Data": parsed_data,
+            "Timestamp": timestamp_obj.strftime("%Y-%m-%d %H:%M:%S")
+        }, indent=2)  # Pretty print with indentation
+        print("\n")  # Add another blank line after the log
+
+        logging.info(f"Transcript {entry['id']} processed and added to the database successfully.\n")
     else:
         logging.error(f"Error parsing JSON for Transcript {entry['id']}: Failed to clean and parse JSON.")
+        print("\n")  # Add a blank line for readability
         continue
 
 # Commit all changes to the database
 session.commit()
-logging.info("All transcripts have been saved to the database.")
+logging.info("\nAll transcripts have been saved to the database.\n")  # Add blank lines for final message
 
 @app.route("/query", methods=["GET"])
 def query_form():
