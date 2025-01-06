@@ -1,10 +1,12 @@
 import openai
+import numpy as np
+from scipy.spatial.distance import cosine
 from dotenv import load_dotenv
 import os
 import json
 from sqlalchemy import create_engine, Column, Integer, Text, DateTime
 from sqlalchemy.orm import sessionmaker, declarative_base
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from flask import Flask, render_template, request
 import threading
 import logging
@@ -12,6 +14,16 @@ import pprint  # For pretty-printing data
 import re
 from sqlalchemy import func
 from generate_timestamps import generate_sample_timestamps
+
+# Function to generate an embedding for a given text using OpenAI API
+def generate_embedding(text):
+    response = openai.Embedding.create(
+        model="text-embedding-ada-002",  # Choose the correct model
+        input=text
+    )
+    return response['data'][0]['embedding']
+
+transcript_embeddings = {}  # This will store embeddings for your transcripts
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -137,54 +149,89 @@ def generate_story(extracted_data):
     return story
 
 def process_query(user_prompt):
+    # Extract the date or date range from the user prompt
     extracted_date = extract_date_from_prompt(user_prompt)
     logging.debug(f"Extracted date for query: {extracted_date}")
 
-    if extracted_date:
-        results = []
+    # If no date range or date is extracted, you might want to search using embeddings
+    if not extracted_date:
+        logging.debug("No specific date range found. Proceeding with semantic search.")
+        
+        # Use semantic search to find the best matching transcripts based on query
+        top_transcripts = find_best_matching_transcript(user_prompt)
 
-        if len(extracted_date.split()) == 2:  # month and year format, e.g. "December 2024"
-            # Extract month and year, convert month name to number (e.g., "December" -> "12")
-            month_str, year_str = extracted_date.split()
-            month_number = datetime.strptime(month_str, "%B").month  # Convert month name to month number
-            extracted_month_year = f"{month_number:02d}-{year_str}"
-            logging.debug(f"Formatted month-year for query: {extracted_month_year}")
+        # Create a response for the user based on top matching transcripts
+        response = ""
+        for transcript_id, similarity in top_transcripts:
+            # Retrieve the transcript content by ID
+            transcript_entry = session.query(Transcript).get(transcript_id)
+            response += f"\n{transcript_entry.content} (Similarity: {similarity:.2f})"
+        
+        if response:
+            return f"Top matching transcripts based on your query: {response}"
+        else:
+            return "No matching transcripts found for your query."
 
-            for entry in session.query(Transcript).filter(func.strftime('%m-%Y', Transcript.timestamp) == extracted_month_year).all():
+    # Process date-based search if a date or range is extracted
+    results = []
+    
+    # Check if the extracted date represents a larger period (like H1 or Q1)
+    if "H1" in extracted_date or "Q1" in extracted_date:
+        logging.debug("Large time period detected (e.g., H1, Q1). Using semantic search.")
+        
+        # Use the `find_best_matching_transcript` function to get matching transcripts based on embeddings
+        top_transcripts = find_best_matching_transcript(user_prompt)
+
+        # Collect results from the top matching transcripts
+        for transcript_id, similarity in top_transcripts:
+            # Retrieve the transcript content by ID
+            transcript_entry = session.query(Transcript).get(transcript_id)
+            results.append(f"Transcript ID: {transcript_id}, Similarity: {similarity:.2f}, Content: {transcript_entry.content}")
+    
+    elif "to" in extracted_date:  # Date range like "2024-01-01 to 2024-06-30"
+        try:
+            start_date_str, end_date_str = extracted_date.split(" to ")
+            start_date = datetime.strptime(start_date_str.strip(), "%Y-%m-%d")
+            end_date = datetime.strptime(end_date_str.strip(), "%Y-%m-%d")
+            logging.debug(f"Start Date: {start_date}, End Date: {end_date}")
+
+            # Query for transcripts in the date range
+            for entry in session.query(Transcript).filter(Transcript.timestamp >= start_date, Transcript.timestamp <= end_date).all():
                 logging.debug(f"Checking Transcript ID: {entry.id}, Timestamp: {entry.timestamp}, Content: {entry.content}")
                 result = extract_meaningful_info(entry.content, user_prompt)
                 results.append(result)
 
-        else:  # Full date like "December 3, 2024"
-            try:
-                extracted_date_obj = datetime.strptime(extracted_date, "%B %d, %Y")  # "December 3, 2024"
-                extracted_date_formatted = extracted_date_obj.strftime("%Y-%m-%d")  # "2024-12-03"
-                logging.debug(f"Formatted date for query: {extracted_date_formatted}")
+        except ValueError as e:
+            logging.error(f"Error parsing date range: {e}")
+            return "Invalid date range format. Please try again."
 
-                for entry in session.query(Transcript).filter(func.strftime('%Y-%m-%d', Transcript.timestamp) == extracted_date_formatted).all():
-                    logging.debug(f"Checking Transcript ID: {entry.id}, Timestamp: {entry.timestamp}, Content: {entry.content}")
-                    result = extract_meaningful_info(entry.content, user_prompt)
-                    results.append(result)
+    else:  # Handle single date formats like "2024-01-01"
+        try:
+            extracted_date_obj = datetime.strptime(extracted_date, "%Y-%m-%d")  # "2024-01-01"
+            extracted_date_formatted = extracted_date_obj.strftime("%Y-%m-%d")  # "2024-01-01"
+            logging.debug(f"Formatted date for query: {extracted_date_formatted}")
 
-            except ValueError as e:
-                logging.error(f"Date format conversion error: {e}")
-                return "Invalid date format. Please try again with a valid date."
+            for entry in session.query(Transcript).filter(func.strftime('%Y-%m-%d', Transcript.timestamp) == extracted_date_formatted).all():
+                logging.debug(f"Checking Transcript ID: {entry.id}, Timestamp: {entry.timestamp}, Content: {entry.content}")
+                result = extract_meaningful_info(entry.content, user_prompt)
+                results.append(result)
 
-        # After collecting results, we need to summarize them in human-readable text.
-        if results:
-            # Combine the results and limit to 100 words
-            combined_results = " ".join(results)
+        except ValueError as e:
+            logging.error(f"Date format conversion error: {e}")
+            return "Invalid date format. Please try again with a valid date."
 
-            # Generate a human-readable story (pass results to AI)
-            story = generate_story(combined_results)
+    # After collecting results, we need to summarize them in human-readable text.
+    if results:
+        # Combine the results and limit to 100 words
+        combined_results = " ".join(results)
 
-            return f"Story Summary: {story}"
-        else:
-            logging.debug("No results found for the extracted date.")
-            return f"No events found for {extracted_date}."
+        # Generate a human-readable story (pass results to AI)
+        story = generate_story(combined_results)
+
+        return f"Story Summary: {story}"
     else:
-        logging.debug("No date was extracted from the user prompt.")
-        return "Sorry, I could not understand your query."
+        logging.debug("No results found for the extracted date.")
+        return f"No events found for {extracted_date}."
 
 def extract_meaningful_info(transcript, user_prompt):
     # Assuming the AI response is a well-formed JSON string.
@@ -275,6 +322,10 @@ for entry_index, entry in enumerate(transcripts_data):  # Use enumerate to get e
     # Call the safe_parse_json function to handle parsing automatically
     parsed_data = safe_parse_json(result.strip())
 
+    # Generate an embedding for the transcript content and store it
+    embedding = generate_embedding(transcript)  # Generate embedding for the transcript
+    transcript_embeddings[entry.id] = embedding  # Store embedding by transcript ID
+
     # Check if parsing was successful before proceeding
     if parsed_data:
         # Use the entry_index to pick the correct timestamp
@@ -292,7 +343,8 @@ for entry_index, entry in enumerate(transcripts_data):  # Use enumerate to get e
         pprint.pprint({
             "Content": transcript,
             "Extracted Data": parsed_data,
-            "Timestamp": timestamp_obj.strftime("%Y-%m-%d %H:%M:%S")
+            "Timestamp": timestamp_obj.strftime("%Y-%m-%d %H:%M:%S"),
+            "Embedding": embedding  # Optionally log the embedding
         }, indent=2)  # Pretty print with indentation
         print("\n")  # Add another blank line after the log
 
@@ -305,6 +357,22 @@ for entry_index, entry in enumerate(transcripts_data):  # Use enumerate to get e
 # Commit all changes to the database
 session.commit()
 logging.info("\nAll transcripts have been saved to the database.\n")  # Add blank lines for final message
+
+def find_best_matching_transcript(user_query):
+    query_embedding = generate_embedding(user_query)  # Get embedding for the query
+    
+    # Find the best matching transcript by calculating cosine similarity
+    similarities = []
+    for transcript_id, embedding in transcript_embeddings.items():
+        similarity = 1 - cosine(query_embedding, embedding)
+        similarities.append((transcript_id, similarity))
+
+    # Sort by similarity, highest first
+    similarities.sort(key=lambda x: x[1], reverse=True)
+
+    # Return the top 3 most similar transcripts (adjust as needed)
+    top_transcripts = similarities[:3]
+    return top_transcripts
 
 @app.route("/query", methods=["GET"])
 def query_form():
