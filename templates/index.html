@@ -7,6 +7,16 @@
 </head>
 <body>
     <h1>All Transcripts</h1>
+    
+    <!-- Query Form -->
+    <h2>Ask About Events</h2>
+    <form action="/query" method="POST">
+        <label for="query">Enter your query:</label>
+        <input type="text" id="query" name="query" required>
+        <button type="submit">Submit</button>
+    </form>
+
+    <h2>All Transcripts</h2>
     <table border="1" style="width: 100%; text-align: left;">
         <thead>
             <tr>
