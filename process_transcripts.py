@@ -41,7 +41,8 @@ class Transcript(Base):
     id = Column(Integer, primary_key=True)
     content = Column(Text, nullable=False)
     extracted_data = Column(Text, nullable=False)
-    timestamp = Column(DateTime, nullable=False)  # Add this line for the timestamp column
+    timestamp = Column(DateTime, nullable=False)  # Timestamp for date
+    embedding = Column(Text, nullable=True)  # Add this line to store embeddings
 
 # Create the database table
 Base.metadata.create_all(engine)
@@ -131,14 +132,14 @@ def generate_story(extracted_data):
     # Format the extracted event data for better story context
     prompt = (
         f"Please summarize the following event details into a coherent narrative so I can review what I did back then. Your response should be limited to 100 words:\n\n{extracted_data}\n\n"
-        "Ensure that the summary is human-readable and flows like a natural narrative. Don't make the contents overly flowery. Keep it mostly matter of fact and don't extrapolate data which isn't given. But do include and make use of ALL data you do have. It can be upto 100 words but it doesn't have to be."
+        "Ensure that the summary is human-readable and flows like a natural narrative. Don't make the contents overly flowery. Keep it mostly matter of fact and don't extrapolate data which isn't given. But do include and make use of ALL data you do have. You must format it as SECOND person throughout using the word YOU. It can be upto 100 words but it doesn't have to be."
     )
     
     # Call OpenAI's API to generate a story
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[
-            {"role": "system", "content": "You are an assistant that summarizes event details into a coherent story."},
+            {"role": "system", "content": "You are an assistant that summarizes journal entries into a coherent narrative."},
             {"role": "user", "content": prompt}
         ],
         max_tokens=500  # Limit the AI response to ~100 words (tokens)
@@ -174,32 +175,34 @@ def process_query(user_prompt):
 
     # Process date-based search if a date or range is extracted
     results = []
-    
-    # Check if the extracted date represents a larger period (like H1 or Q1)
-    if "H1" in extracted_date or "Q1" in extracted_date:
-        logging.debug("Large time period detected (e.g., H1, Q1). Using semantic search.")
-        
-        # Use the `find_best_matching_transcript` function to get matching transcripts based on embeddings
-        top_transcripts = find_best_matching_transcript(user_prompt)
 
-        # Collect results from the top matching transcripts
-        for transcript_id, similarity in top_transcripts:
-            # Retrieve the transcript content by ID
-            transcript_entry = session.query(Transcript).get(transcript_id)
-            results.append(f"Transcript ID: {transcript_id}, Similarity: {similarity:.2f}, Content: {transcript_entry.content}")
-    
-    elif "to" in extracted_date:  # Date range like "2024-01-01 to 2024-06-30"
+    # Check if the date range is 3 days or more
+    if "to" in extracted_date:  # Date range like "2024-01-01 to 2024-06-30"
         try:
             start_date_str, end_date_str = extracted_date.split(" to ")
             start_date = datetime.strptime(start_date_str.strip(), "%Y-%m-%d")
             end_date = datetime.strptime(end_date_str.strip(), "%Y-%m-%d")
-            logging.debug(f"Start Date: {start_date}, End Date: {end_date}")
+            days_difference = (end_date - start_date).days
 
-            # Query for transcripts in the date range
-            for entry in session.query(Transcript).filter(Transcript.timestamp >= start_date, Transcript.timestamp <= end_date).all():
-                logging.debug(f"Checking Transcript ID: {entry.id}, Timestamp: {entry.timestamp}, Content: {entry.content}")
-                result = extract_meaningful_info(entry.content, user_prompt)
-                results.append(result)
+            logging.debug(f"Start Date: {start_date}, End Date: {end_date}, Days Difference: {days_difference}")
+
+            if days_difference >= 2:
+                # If the range is 3 days or more, use semantic search
+                logging.debug("Date range is 3 or more days. Using semantic search.")
+                top_transcripts = find_best_matching_transcript(user_prompt)
+
+                # Collect results from the top matching transcripts
+                for transcript_id, similarity in top_transcripts:
+                    # Retrieve the transcript content by ID
+                    transcript_entry = session.query(Transcript).get(transcript_id)
+                    results.append(f"Transcript ID: {transcript_id}, Similarity: {similarity:.2f}, Content: {transcript_entry.content}")
+            else:
+                # For smaller date ranges, loop through each day
+                logging.debug("Date range is 1 or 2 days. Processing day-by-day.")
+                for entry in session.query(Transcript).filter(Transcript.timestamp >= start_date, Transcript.timestamp <= end_date).all():
+                    logging.debug(f"Checking Transcript ID: {entry.id}, Timestamp: {entry.timestamp}, Content: {entry.content}")
+                    result = extract_meaningful_info(entry.content, user_prompt)
+                    results.append(result)
 
         except ValueError as e:
             logging.error(f"Error parsing date range: {e}")
@@ -310,48 +313,48 @@ for entry_index, entry in enumerate(transcripts_data):  # Use enumerate to get e
     existing_entry = session.query(Transcript).filter_by(content=transcript).first()
     if existing_entry:
         logging.info(f"Transcript {entry['id']} already exists in the database. Skipping processing.")
-        print("\n")  # Add a blank line for readability
         continue
 
-    logging.info(f"Processing Transcript {entry['id']}...\n")  # Debugging line with a blank line after it
+    logging.info(f"Processing Transcript {entry['id']}...\n")  # Debugging line
     
-    user_prompt = "Default query for processing all transcripts"  # Or leave it as empty ""
-    # Process and add new transcript
-    result = extract_meaningful_info(transcript, user_prompt)
-
-    # Call the safe_parse_json function to handle parsing automatically
-    parsed_data = safe_parse_json(result.strip())
-
     # Generate an embedding for the transcript content and store it
     embedding = generate_embedding(transcript)  # Generate embedding for the transcript
-    transcript_embeddings[entry.id] = embedding  # Store embedding by transcript ID
 
-    # Check if parsing was successful before proceeding
+    user_prompt = ""
+
+    # Process the extracted data (for event summary, etc.)
+    result = extract_meaningful_info(transcript, user_prompt)
+    parsed_data = safe_parse_json(result.strip())
+
     if parsed_data:
-        # Use the entry_index to pick the correct timestamp
+        # Create a timestamp object for the transcript
         timestamp_obj = datetime.strptime(timestamps[entry_index], "%Y-%m-%d %H:%M:%S")
 
+        # Store the new entry with the embedding in the database
         new_entry = Transcript(
             content=transcript,
             extracted_data=json.dumps(parsed_data),  # Store as JSON string
-            timestamp=timestamp_obj  # Use the datetime object instead of the string
+            timestamp=timestamp_obj,  # Use the datetime object instead of the string
+            embedding=json.dumps(embedding)  # Store the embedding (as JSON-encoded string)
         )
-        session.add(new_entry)
 
-        # Log what was added in a pretty format
+        # Add to the session and commit to the database
+        session.add(new_entry)
+        session.commit()  # Commit changes to the database
+
+        # Log what was added
         print("\n--- New Transcript Added to Database ---")
         pprint.pprint({
             "Content": transcript,
             "Extracted Data": parsed_data,
             "Timestamp": timestamp_obj.strftime("%Y-%m-%d %H:%M:%S"),
-            "Embedding": embedding  # Optionally log the embedding
+            "Embedding": embedding
         }, indent=2)  # Pretty print with indentation
         print("\n")  # Add another blank line after the log
 
         logging.info(f"Transcript {entry['id']} processed and added to the database successfully.\n")
     else:
         logging.error(f"Error parsing JSON for Transcript {entry['id']}: Failed to clean and parse JSON.")
-        print("\n")  # Add a blank line for readability
         continue
 
 # Commit all changes to the database
@@ -359,19 +362,21 @@ session.commit()
 logging.info("\nAll transcripts have been saved to the database.\n")  # Add blank lines for final message
 
 def find_best_matching_transcript(user_query):
-    query_embedding = generate_embedding(user_query)  # Get embedding for the query
+    query_embedding = generate_embedding(user_query)  # Generate embedding for the query
     
-    # Find the best matching transcript by calculating cosine similarity
+    # Find the best matching transcript by comparing stored embeddings
     similarities = []
-    for transcript_id, embedding in transcript_embeddings.items():
-        similarity = 1 - cosine(query_embedding, embedding)
-        similarities.append((transcript_id, similarity))
+    for transcript_entry in session.query(Transcript).all():
+        # Parse the stored embedding (from JSON string)
+        stored_embedding = json.loads(transcript_entry.embedding)
+        similarity = 1 - cosine(query_embedding, stored_embedding)  # Compute cosine similarity
+        similarities.append((transcript_entry.id, similarity))
 
     # Sort by similarity, highest first
     similarities.sort(key=lambda x: x[1], reverse=True)
 
     # Return the top 3 most similar transcripts (adjust as needed)
-    top_transcripts = similarities[:3]
+    top_transcripts = similarities[:10]
     return top_transcripts
 
 @app.route("/query", methods=["GET"])
