@@ -1,0 +1,64 @@
+[
+    {
+        "Event details": {
+            "Meeting purpose": "Discuss the new project launch",
+            "Topics discussed": [
+                "Timelines",
+                "Responsibilities",
+                "Next steps"
+            ]
+        },
+        "People involved": [
+            "Sarah"
+        ],
+        "Emotions": [
+            "Positive",
+            "Productive"
+        ],
+        "Outcomes or actions": "Discussion on timelines, responsibilities, and next steps",
+        "Memorable moments": "Great meeting"
+    },
+    {
+        "Event details": {
+            "activities": [
+                "organizing desk",
+                "calling Mom"
+            ],
+            "timing": "morning",
+            "description": "desk was messy"
+        },
+        "People involved": {
+            "Mom": {
+                "relation": "family",
+                "current status": "doing well"
+            }
+        },
+        "Emotions": {
+            "feelings": [
+                "determination to organize desk",
+                "happiness to catch up with Mom"
+            ]
+        },
+        "Outcomes or actions": {
+            "desk status": "organized",
+            "Mom status": "doing well"
+        },
+        "Memorable moments": {
+            "highlight": "catching up with Mom"
+        }
+    },
+    {
+        "Event details": {
+            "Activity": "Went for a run"
+        },
+        "People involved": {},
+        "Emotions": {
+            "Initial feeling": "Feeling tired",
+            "Post-activity feeling": "Feeling better"
+        },
+        "Outcomes or actions": {
+            "Cleared mind": true
+        },
+        "Memorable moments": {}
+    }
+]
