@@ -9,6 +9,7 @@ from flask import Flask, render_template, request
 import threading
 import logging
 import re
+from sqlalchemy import func
 from generate_timestamps import generate_sample_timestamps
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -56,12 +57,31 @@ def index():
     return render_template("index.html", transcripts=transcripts)
 
 def extract_date_from_prompt(user_prompt):
-    # This function should extract dates from the user's query
+    logging.debug(f"User Prompt: {user_prompt}")  # Log user prompt
+
     date_found = None
+    current_date = datetime.now()
+    current_year = current_date.year
+
+    # If it's before December, the latest December was last year
+    if current_date.month < 12:
+        latest_december_year = current_year - 1
+    else:
+        latest_december_year = current_year
+
+    date_match = re.search(r"(december (\d{1,2})(st|nd|rd|th)?(?:, (\d{4}))?)", user_prompt, re.IGNORECASE)
     
-    # Try extracting the date here (e.g., using regex or simple keyword checks)
-    if "december" in user_prompt.lower():
-        date_found = "december"  # or extract the specific date
+    if date_match:
+        day = date_match.group(2)
+        year = date_match.group(4) if date_match.group(4) else latest_december_year
+        date_found = f"december {day}, {year}"
+        logging.debug(f"Extracted Date: {date_found}")
+    elif re.search(r"december", user_prompt, re.IGNORECASE):
+        date_found = f"december {latest_december_year}"
+        logging.debug(f"Extracted Month Only: {date_found}")
+
+    if not date_found:
+        logging.debug("No date extracted from user prompt.")
     
     return date_found
 
@@ -85,25 +105,56 @@ def parse_query_for_dates(user_prompt):
         return None
 
 def process_query(user_prompt):
-    # Check if the user is asking about a specific date or a date range
     extracted_date = extract_date_from_prompt(user_prompt)
-    
+    logging.debug(f"Extracted date for query: {extracted_date}")
+
     if extracted_date:
-        # Look for transcripts on the specific date extracted
         results = []
-        for entry in session.query(Transcript).filter(Transcript.timestamp.like(f"{extracted_date}%")).all():
-            user_prompt = "Default query for processing all transcripts"  # or leave it as an empty string ""
-            result = extract_meaningful_info(transcript, user_prompt)
-            results.append(result)
+
+        # Handle the case where user only provides a month-year (like "December 2024")
+        if len(extracted_date.split()) == 2:  # month and year format, e.g. "December 2024"
+            # Extract month and year, convert month name to number (e.g., "December" -> "12")
+            month_str, year_str = extracted_date.split()
+            month_number = datetime.strptime(month_str, "%B").month  # Convert month name to month number
+            extracted_month_year = f"{month_number:02d}-{year_str}"
+            logging.debug(f"Formatted month-year for query: {extracted_month_year}")
+
+            # Query the database with the formatted month-year
+            for entry in session.query(Transcript).filter(func.strftime('%m-%Y', Transcript.timestamp) == extracted_month_year).all():
+                logging.debug(f"Checking Transcript ID: {entry.id}, Timestamp: {entry.timestamp}, Content: {entry.content}")
+                result = extract_meaningful_info(entry.content, user_prompt)
+                results.append(result)
+
+        else:  # This means we have a full date like "December 3, 2024"
+            # Try to convert it into a valid date (YYYY-MM-DD)
+            try:
+                extracted_date_obj = datetime.strptime(extracted_date, "%B %d, %Y")  # "December 3, 2024"
+                extracted_date_formatted = extracted_date_obj.strftime("%Y-%m-%d")  # "2024-12-03"
+                logging.debug(f"Formatted date for query: {extracted_date_formatted}")
+
+                # Query the database with the formatted date
+                for entry in session.query(Transcript).filter(func.strftime('%Y-%m-%d', Transcript.timestamp) == extracted_date_formatted).all():
+                    logging.debug(f"Checking Transcript ID: {entry.id}, Timestamp: {entry.timestamp}, Content: {entry.content}")
+                    result = extract_meaningful_info(entry.content, user_prompt)
+                    results.append(result)
+
+            except ValueError as e:
+                logging.error(f"Date format conversion error: {e}")
+                return "Invalid date format. Please try again with a valid date."
 
         if results:
             return " ".join(" ".join(results).split()[:100])  # Limit to 100 words for brevity
         else:
+            logging.debug("No results found for the extracted date.")
             return f"No events found for {extracted_date}."
     else:
+        logging.debug("No date was extracted from the user prompt.")
         return "Sorry, I could not understand your query."
 
 def extract_meaningful_info(transcript, user_prompt):
+    logging.debug(f"Processing transcript: {transcript[:50]}...")  # Log first 50 characters of transcript
+    logging.debug(f"User Prompt: {user_prompt}")  # Log user prompt
+
     refined_prompt = (
         "You are an assistant that extracts key details from a given text. "
         "Please format the extracted information into a clean, strictly valid JSON format. "
@@ -120,6 +171,8 @@ def extract_meaningful_info(transcript, user_prompt):
         "Do not include any extra text outside of the JSON structure or I will discard your response."
     )
 
+    logging.debug(f"Refined Prompt for AI: {refined_prompt}")  # Log the exact prompt sent to AI
+
     # Call OpenAI's API with the enhanced prompt
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
@@ -129,9 +182,9 @@ def extract_meaningful_info(transcript, user_prompt):
         ],
         max_tokens=200
     )
-    
-    # Log the response for debugging purposes
-    logging.debug(f"OpenAI response for Transcript: {response['choices'][0]['message']['content']}")
+
+    # Log the API response for debugging
+    logging.debug(f"OpenAI Response: {response['choices'][0]['message']['content']}")
     
     # Return the cleaned result
     return response["choices"][0]["message"]["content"].strip()
@@ -202,11 +255,14 @@ def query():
     # Get the user's prompt from the form
     user_prompt = request.form["query"]
     
-    # Pass the user prompt to process_query
+    # Log the user prompt
+    logging.debug(f"User Prompt: {user_prompt}")
+    
+    # Process the query with the user prompt
     response = process_query(user_prompt)  # Pass user_prompt here
     
     # Render the query results page with the response
-    return render_template("query_results.html", response=response)
+    return render_template("query_results.html", response=response, prompt=user_prompt)
 
 if __name__ == "__main__":
     app.run(debug=True)
