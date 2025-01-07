@@ -1,41 +1,265 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Transcripts</title>
-</head>
-<body>
-    <h1>All Transcripts</h1>
-    
-    <!-- Query Form -->
-    <h2>Ask About Events</h2>
-    <form action="/query" method="POST">
-        <label for="query">Enter your query:</label>
-        <input type="text" id="query" name="query" required>
-        <button type="submit">Submit</button>
-    </form>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Reflectify</title>
+        <!-- Playfair Display font for text box and title/subtitles -->
+        <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400&display=swap" rel="stylesheet">
+        <!-- Lora font for titles and subtitles -->
+        <link href="https://fonts.googleapis.com/css2?family=Lora:wght@400;700&display=swap" rel="stylesheet">
+        <!-- Bootstrap CSS -->
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+        <style>
+        /* Universal styling for light and dark themes */
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: 'Playfair Display', serif; /* Default font for the body text */
+        }
 
-    <h2>All Transcripts</h2>
-    <table border="1" style="width: 100%; text-align: left;">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Content</th>
-                <th>Extracted Data</th>
-                <th>Timestamp</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for transcript in transcripts %}
-            <tr>
-                <td>{{ transcript.id }}</td>
-                <td>{{ transcript.content }}</td>
-                <td>{{ transcript.extracted_data }}</td>
-                <td>{{ transcript.timestamp }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+        body.bg-dark #query::placeholder {
+            color: rgba(108, 117, 125, 0.6); /* Lighter placeholder text in dark mode */
+        }
+
+        /* Light theme styles */
+        body.bg-light {
+            background-color: #f8f9fa;
+            color: #343a40; /* Dark text color for light mode */
+        }
+
+        body.bg-dark #card-title-mb3 {
+            color: #343a40; /* Dark color for the heading in dark mode */
+        }
+
+        /* Dark theme styles */
+        body.bg-dark {
+            background-color: #343a40;
+            color: #f8f9fa; /* Light text color for dark mode */
+        }
+
+        /* Heading color for both light and dark themes (Dark color for heading) */
+        h2 {
+            color: #343a40; /* Dark color for "When should we time travel to?" heading */
+        }
+
+        /* Input text color for both themes (Dark color for text when typing) */
+        input {
+            color: #343a40; /* Dark text for input box in both themes */
+        }
+
+        /* Placeholder text color in both themes (Medium grey color for placeholder) */
+        input::placeholder {
+            color: rgba(108, 117, 125, 0.6); /* Lighter placeholder text in both themes */
+        }
+
+        body.bg-dark #query:focus,
+        body.bg-dark #query {
+            color: #000000 !important; /* Force black text when typing inside input in dark mode */
+        }
+
+        /* Placeholder text color when typing in dark mode */
+        body.bg-dark input::placeholder {
+            color: rgba(108, 117, 125, 0.6); /* Keep placeholder text the same */
+        }
+
+        /* Button styles (ensure same color for both themes) */
+        button {
+            background-color: #007bff;
+            color: white;
+        }
+
+        /* Toggle button styles */
+        button#theme-toggle {
+            background-color: #f8f9fa;
+            color: #343a40;
+        }
+
+        /* Dark theme button styles */
+        body.bg-dark button#theme-toggle {
+            background-color: #343a40;
+            color: #f8f9fa;
+        }
+
+        /* Placeholder text color when fading in */
+        .faded-placeholder {
+            font-style: italic;
+            color: rgba(108, 117, 125, 0.6); /* Same faded placeholder text for both themes */
+            transition: opacity 1s ease-in-out; /* Smooth fade effect */
+        }
+
+        /* Text when typing is active */
+        .typing-active {
+            font-style: normal;
+            color: black;
+            transition: none; /* Disable fading when user is typing */
+        }
+
+        .container {
+            max-width: 600px;
+        }
+
+        h1, h2 {
+            font-family: 'Lora', serif; /* Lora font for titles and subtitles */
+        }
+
+        .switch {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        /* Hide the default checkbox */
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        /* Style the slider */
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: 0.4s;
+            border-radius: 34px;
+        }
+
+        /* When the checkbox is checked, change the slider background */
+        .switch input:checked + .slider {
+            background-color: #4caf50; /* Green when checked */
+        }
+
+        /* Create the slider circle */
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: 0.4s;
+        }
+
+        /* When the checkbox is checked, move the slider circle to the right */
+        .switch input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        </style>
+    </head>    
+<body class="bg-light">
+    <div class="container text-center">
+        <!-- Updated Title -->
+        <h1 class="mb-4">Reflectify ⏳</h1>
+        <!-- Toggle button for Dark/Light mode -->
+        <label class="switch">
+            <input type="checkbox" id="theme-toggle">
+            <span class="slider round"></span>
+        </label>
+        <p class="mb-5">Memories from your life resurfaced in breathtaking detail...</p>
+
+        <!-- Query Form -->
+        <div class="card p-4 shadow">
+            <h2 class="card-title-mb-3">When should we time travel to? ⏪</h2>
+            <form action="/query" method="POST">
+                <div class="mb-3">
+                    <input 
+                        type="text" 
+                        id="query" 
+                        name="query" 
+                        class="form-control text-center faded-placeholder" 
+                        placeholder="Loading examples..." 
+                        required>
+                </div>
+                <button type="submit" class="btn btn-primary">Reflect</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- JavaScript to Cycle Placeholder Text -->
+    <script>
+
+        const themeToggleButton = document.getElementById("theme-toggle");
+
+        themeToggleButton.addEventListener("change", () => {
+            // Toggle dark theme on body
+            document.body.classList.toggle("bg-dark");
+
+            // Toggle the text color for placeholder text
+            const inputBox = document.getElementById("query");
+            if (document.body.classList.contains("bg-dark")) {
+                inputBox.style.color = "#f8f9fa"; // Light color text in dark mode
+            } else {
+                inputBox.style.color = "#343a40"; // Dark color text in light mode
+            }
+        });
+
+        const examples = [
+            "What did I do on December 3rd?",
+            "Which places did I visit in March 2024?",
+            "Describe my milestones last year...",
+            "What happened on the last weekend of September?",
+            "Who did I meet in the second half of last year?",
+            "Was April a good month for me?"
+        ];
+
+        let currentIndex = 0;
+        const inputBox = document.getElementById("query");
+        let placeholderInterval;
+
+        function updatePlaceholder() {
+            // Fade out placeholder
+            inputBox.style.opacity = 0;
+
+            // Wait for fade out to complete, then update placeholder
+            setTimeout(() => {
+                inputBox.setAttribute("placeholder", examples[currentIndex]);
+                currentIndex = (currentIndex + 1) % examples.length; // Loop back to first example
+
+                // Fade in placeholder
+                inputBox.style.opacity = 1;
+            }, 1000); // Match the transition duration (1s)
+        }
+
+        function startPlaceholderCycling() {
+            placeholderInterval = setInterval(updatePlaceholder, 4000);
+            updatePlaceholder();
+        }
+
+        function stopPlaceholderCycling() {
+            clearInterval(placeholderInterval);
+        }
+
+        // Event listeners to stop/start cycling and apply styles
+        inputBox.addEventListener("input", () => {
+            if (inputBox.value) {
+                stopPlaceholderCycling();
+                inputBox.classList.add("typing-active");
+                inputBox.classList.remove("faded-placeholder");
+            } else {
+                inputBox.classList.remove("typing-active");
+                inputBox.classList.add("faded-placeholder");
+                startPlaceholderCycling();
+            }
+        });
+
+        // Start cycling placeholders on page load
+        startPlaceholderCycling();
+    </script>
+
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
