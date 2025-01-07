@@ -135,15 +135,17 @@ def generate_story(extracted_data):
     """
     # Format the extracted event data for better story context
     prompt = (
-        f"Please summarize the following event details into a coherent narrative so I can review what I did back then. Your response should be limited to 100 words:\n\n{extracted_data}\n\n"
-        "Ensure that the summary is human-readable and flows like a natural narrative. Don't make the contents overly flowery. Keep it mostly matter of fact and don't extrapolate data which isn't given. But do include and make use of ALL data you do have. You must format it as SECOND person throughout using the word you. It can be upto 100 words but it doesn't have to be."
+        f"Please summarize the following event details into a coherent narrative so I can fondly review what I did back then. Your response should be limited to 100 words:\n\n{extracted_data}\n\n"
+        "Ensure that the summary is human-readable and flows like a natural narrative. Keep it mostly matter of fact and don't extrapolate data which isn't given.\n\n"
+        "But do include and make use of ALL data you do have. You must format it as SECOND person throughout using the word you. It can be upto 100 words but it doesn't have to be.\n\n"
+        "Do NOT use the word 'day' AT ALL, as the time period could be much longer than this. Don't use participle phrases. Avoid passive voice. Write in British English"
     )
     
     # Call OpenAI's API to generate a story
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[
-            {"role": "system", "content": "You are an assistant that summarizes journal entries into a coherent narrative."},
+            {"role": "system", "content": "You are an assistant that summarises journal entries for a given period of time into a coherent narrative without using the word day."},
             {"role": "user", "content": prompt}
         ],
         max_tokens=500  # Limit the AI response to ~100 words (tokens)
