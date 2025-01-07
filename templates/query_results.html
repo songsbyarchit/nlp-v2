@@ -6,35 +6,58 @@
     <title>Query Results</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400&display=swap" rel="stylesheet">
     <style>
+        /* Dark theme styles for response lines */
+        body.bg-dark .response-line {
+            background: linear-gradient(to right, #343a40 0%, #343a40 100%); /* Dark background for response lines in dark mode */
+        }
+        .no-transition {
+            transition: none !important;
+        }
+        /* Ensure the revealed text lines in dark mode have the correct background */
+        body.bg-dark .response-line.visible {
+            background-position: 0 0;
+            background-color: #343a40; /* Dark background when the text is revealed */
+        }
         body {
             font-family: 'Playfair Display', serif;
-            background-color: #f8f9fa;
-            color: #343a40;
             margin: 0;
             height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
+            transition: background-color 0.4s, color 0.4s; /* Smooth transition */
+        }
+
+        /* Light theme styles */
+        body.bg-light {
+            background-color: #f8f9fa; /* Light background */
+            color: #343a40; /* Dark text for light mode */
+        }
+
+        /* Dark theme styles */
+        body.bg-dark {
+            background-color: #343a40; /* Dark background */
+            color: #f8f9fa; /* Light text for dark mode */
         }
         .center-container {
             text-align: center;
             max-width: 800px;
         }
         .response-container {
-            text-align: left; /* Fixed left alignment */
+            text-align: left;
             line-height: 2em;
             overflow: hidden;
             position: relative;
-            max-width: 800px; /* Set a fixed maximum width */
-            width: 800px; /* Ensure the width is consistent */
-            margin: auto; /* Center the container horizontally */
-            padding-left: 100px; /* Add left padding to offset it slightly */
-            padding-right: 50px; /* Optional for symmetry */
+            max-width: 800px;
+            width: 800px;
+            margin: auto;
+            padding-left: 100px;
+            padding-right: 50px;
             height: 100%;
             display: flex;
             flex-direction: column;
             justify-content: center;
-            align-items: flex-start; /* Ensure the text is left-aligned */
+            align-items: flex-start;
         }
         .response-line {
             opacity: 0;
@@ -54,9 +77,9 @@
         }
 
         .response-line:last-child {
-            text-align: left; /* Ensure the last line is not justified */
+            text-align: left;
             width: auto;
-        } /* Missing closing bracket added here */
+        }
 
         .back-link {
             display: inline-block;
@@ -69,47 +92,143 @@
             opacity: 0;
             visibility: hidden;
             transition: opacity 1s ease-in-out;
-            position: relative; /* Keep it relative to the container */
-            bottom: 0; /* Remove fixed offset */
-            margin-left: -50px; /* Adjust the value to move it slightly left */
         }
         .back-link.visible {
-            opacity: 1; /* Fade in */
-            visibility: visible; /* Make it interactive */
+            opacity: 1;
+            visibility: visible;
+        }
+        /* Style for theme switch toggle button */
+        .switch {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        /* Hide the default checkbox */
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        /* Style the slider */
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: 0.4s;
+            border-radius: 34px;
+        }
+
+        /* Change background color when checkbox is checked (dark mode) */
+        .switch input:checked + .slider {
+            background-color: #4caf50;
+        }
+
+        /* Style the slider circle */
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: 0.4s;
+        }
+
+        /* Move the slider circle when checked */
+        .switch input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        /* Light theme - button background */
+        body.bg-light .slider {
+            background-color: #ccc;
+        }
+
+        /* Dark theme - button background */
+        body.bg-dark .slider {
+            background-color: #343a40; /* Dark background for slider */
+        }
+
+        body.bg-dark .slider:before {
+            background-color: #f8f9fa; /* Light circle in dark mode */
         }
     </style>
 </head>
 <body>
+    <!-- Theme toggle button -->
+    <label class="switch">
+        <input type="checkbox" id="theme-toggle">
+        <span class="slider round"></span>
+    </label>
+
     <div class="center-container">
         <div class="response-container"></div>
         <a href="/" class="back-link">Time Travel Again? 👀</a>
     </div>
+
     <script>
         const responseText = `{{ response | safe }}`;
         const lines = responseText.match(/.{1,80}(?:\s|$)/g);
         const responseContainer = document.querySelector('.response-container');
         const backLink = document.querySelector('.back-link');
+
         function revealLines() {
             lines.forEach((line, index) => {
                 const div = document.createElement('div');
                 div.className = 'response-line';
                 div.textContent = line.trim();
-
-                // Position each line based on its index
-                div.style.marginTop = '0.3em'; // Add spacing between lines
-
+                div.style.marginTop = '0.3em';
                 responseContainer.appendChild(div);
 
-                // Trigger the reveal animation
-                setTimeout(() => div.classList.add('visible'), index * 1200); // Delay for each line
+                setTimeout(() => div.classList.add('visible'), index * 1200);
             });
 
-            // After all lines are revealed, switch text alignment to justify
             setTimeout(() => {
-            backLink.classList.add('visible'); // Show the back link sooner
-        }, lines.length * 1200 + 1000); // Faster reveal after last line
+                backLink.classList.add('visible');
+            }, lines.length * 1200 + 1000);
         }
+
         window.onload = revealLines;
+
+        const themeToggleButton = document.getElementById("theme-toggle");
+
+        if (localStorage.getItem("theme") === "dark") {
+            document.body.classList.add("bg-dark");
+            themeToggleButton.checked = true;
+        } else {
+            document.body.classList.add("bg-light");
+            themeToggleButton.checked = false;
+        }
+
+        themeToggleButton.addEventListener("change", () => {
+            document.body.classList.add('no-transition');
+            if (themeToggleButton.checked) {
+                document.body.classList.add("bg-dark");
+                document.body.classList.remove("bg-light");
+                localStorage.setItem("theme", "dark");
+            } else {
+                document.body.classList.add("bg-light");
+                document.body.classList.remove("bg-dark");
+                localStorage.setItem("theme", "light");
+            }
+
+             // Re-enable the transition after a brief delay
+            setTimeout(() => {
+                document.body.classList.remove('no-transition');  // Re-enable transition
+            }, 100); // Wait for the theme to fully switch before re-enabling the transition
+            
+        });
     </script>
 </body>
 </html>
