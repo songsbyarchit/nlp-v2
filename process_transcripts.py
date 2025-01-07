@@ -77,9 +77,13 @@ def extract_date_from_prompt(user_prompt):
     """
     logging.debug(f"User Prompt: {user_prompt}")  # Log user prompt
 
-    # Refined prompt to query OpenAI
+    # Get the current date and time
+    current_date = datetime.now().strftime("%Y-%m-%d")
+
+    # Refined prompt with current date included
     refined_prompt = (
         "You are an assistant that extracts specific dates or date ranges from queries. "
+        f"Today's date is {current_date}. When no year is specified, assume the date refers to the most recent occurrence of that month and day relative to today's date (even if it was almost a full year ago!) "
         "Handle flexible formats such as '9Dec', 'dec 9th', 'Q1', 'H1', or typos like '9 decenbr'. "
         "Output in one of the following formats:\n"
         "1. 'YYYY-MM-DD' for a single date.\n"
@@ -132,7 +136,7 @@ def generate_story(extracted_data):
     # Format the extracted event data for better story context
     prompt = (
         f"Please summarize the following event details into a coherent narrative so I can review what I did back then. Your response should be limited to 100 words:\n\n{extracted_data}\n\n"
-        "Ensure that the summary is human-readable and flows like a natural narrative. Don't make the contents overly flowery. Keep it mostly matter of fact and don't extrapolate data which isn't given. But do include and make use of ALL data you do have. You must format it as SECOND person throughout using the word YOU. It can be upto 100 words but it doesn't have to be."
+        "Ensure that the summary is human-readable and flows like a natural narrative. Don't make the contents overly flowery. Keep it mostly matter of fact and don't extrapolate data which isn't given. But do include and make use of ALL data you do have. You must format it as SECOND person throughout using the word you. It can be upto 100 words but it doesn't have to be."
     )
     
     # Call OpenAI's API to generate a story
@@ -193,7 +197,6 @@ def process_query(user_prompt):
 
                 # Collect results from the top matching transcripts
                 for transcript_id, similarity in top_transcripts:
-                    # Retrieve the transcript content by ID
                     transcript_entry = session.query(Transcript).get(transcript_id)
                     results.append(f"Transcript ID: {transcript_id}, Similarity: {similarity:.2f}, Content: {transcript_entry.content}")
             else:
@@ -214,7 +217,7 @@ def process_query(user_prompt):
             extracted_date_formatted = extracted_date_obj.strftime("%Y-%m-%d")  # "2024-01-01"
             logging.debug(f"Formatted date for query: {extracted_date_formatted}")
 
-            for entry in session.query(Transcript).filter(func.strftime('%Y-%m-%d', Transcript.timestamp) == extracted_date_formatted).all():
+            for entry in session.query(Transcript).filter(func.date(Transcript.timestamp) == extracted_date_formatted).all():
                 logging.debug(f"Checking Transcript ID: {entry.id}, Timestamp: {entry.timestamp}, Content: {entry.content}")
                 result = extract_meaningful_info(entry.content, user_prompt)
                 results.append(result)
