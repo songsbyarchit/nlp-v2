@@ -130,24 +130,39 @@ def parse_query_for_dates(user_prompt):
 
 def generate_story(extracted_data):
     """
-    This function takes the extracted event details and turns it into a full, human-readable story.
-    It uses the AI to summarize the data into a coherent paragraph or story.
+    This function takes the extracted event details (with timestamps) and turns it into a full, human-readable story.
+    It uses the AI to summarize the data into a coherent paragraph or story while maintaining chronological order.
     """
+    # Format the extracted data for the prompt
+    formatted_data = "\n".join(
+        [f"Timestamp: {item['timestamp']} - Event: {item['content']}" for item in extracted_data]
+    )
+
     # Format the extracted event data for better story context
     prompt = (
-        f"Please summarize the following event details into a coherent narrative so I can fondly review what I did back then. Your response should be limited to 100 words:\n\n{extracted_data}\n\n"
-        "Ensure that the summary is human-readable and flows like a natural narrative. Keep it mostly matter of fact and don't extrapolate data which isn't given.\n\n"
-        "But do include and make use of ALL data you do have. You must format it as SECOND person and you MUST use the word 'you'. It can be upto 100 words but it doesn't have to be.\n\n"
-        "You must jump right into the story with the word 'you'. Do NOT start with a phrase like 'story:' or 'summary': "
-        "You have a gun to your head and have been told NOT to use the words 'day','week','weekend','month','quarter','year', OR ANY MONTH/DAY NAMES AT ALL. IF YOU USE THESE WORDS YOU WILL BE FIRED FROM YOUR ROLE PERMENANTLY.\n\n"
-        "Don't use participle phrases. Avoid passive voice. Write in British English"
+        "The following is a list of events, each associated with a specific timestamp. "
+        "Use this information to generate a coherent narrative about what happened during this period. "
+        "The narrative must strictly follow the chronological order of the events based on their timestamps. "
+        "Do not reorder or group events. Ensure all details are included and connected seamlessly. "
+        "Write the story in the second person using the word 'you' to describe the actions or events. "
+        "Avoid passive voice and participle phrases. Write in British English. "
+        "You must jump directly into the story with the word 'you' without any introductory phrases. "
+        "You are forbidden from using the words 'day', 'week', 'weekend', 'month', 'quarter', 'year', or any specific month/day names. "
+        "Limit your response to 100 words. "
+        f"\n\nHere are the events:\n\n{extracted_data}"
     )
     
     # Call OpenAI's API to generate a story
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[
-            {"role": "system", "content": "You are an assistant that summarises journal entries for a given period of time into a coherent narrative WITHOUT using the words day, week, weekend, month, year or quarter or month/day names."},
+            {
+                "role": "system",
+                "content": (
+                    "You are an assistant that generates coherent narratives from chronological events. "
+                    "Your task is to write a story in British English without using specific time units or month/day names."
+                )
+            },
             {"role": "user", "content": prompt}
         ],
         max_tokens=500  # Limit the AI response to ~100 words (tokens)
@@ -200,15 +215,20 @@ def process_query(user_prompt):
                 top_transcripts = find_best_matching_transcript(user_prompt)
 
                 # Collect results from the top matching transcripts
-                for transcript_id, similarity in top_transcripts:
-                    transcript_entry = session.query(Transcript).get(transcript_id)
-                    results.append(f"Transcript ID: {transcript_id}, Similarity: {similarity:.2f}, Content: {transcript_entry.content}")
+                for entry in session.query(Transcript).filter(
+                    Transcript.timestamp >= start_date, Transcript.timestamp <= end_date
+                ).order_by(Transcript.timestamp.asc()).all():
+                    # Ensure correct structure
+                    result = {"timestamp": entry.timestamp, "content": entry.content}
+                    results.append(result)
             else:
                 # For smaller date ranges, loop through each day
                 logging.debug("Date range is 1 or 2 days. Processing day-by-day.")
-                for entry in session.query(Transcript).filter(Transcript.timestamp >= start_date, Transcript.timestamp <= end_date).all():
-                    logging.debug(f"Checking Transcript ID: {entry.id}, Timestamp: {entry.timestamp}, Content: {entry.content}")
-                    result = extract_meaningful_info(entry.content, user_prompt)
+                for entry in session.query(Transcript).filter(
+                    func.date(Transcript.timestamp) == extracted_date_formatted
+                ).order_by(Transcript.timestamp.asc()).all():
+                    # Ensure correct structure
+                    result = {"timestamp": entry.timestamp, "content": entry.content}
                     results.append(result)
 
         except ValueError as e:
@@ -221,9 +241,9 @@ def process_query(user_prompt):
             extracted_date_formatted = extracted_date_obj.strftime("%Y-%m-%d")  # "2024-01-01"
             logging.debug(f"Formatted date for query: {extracted_date_formatted}")
 
-            for entry in session.query(Transcript).filter(func.date(Transcript.timestamp) == extracted_date_formatted).all():
+            for entry in session.query(Transcript).filter(func.date(Transcript.timestamp) == extracted_date_formatted).order_by(Transcript.timestamp.asc()).all():
                 logging.debug(f"Checking Transcript ID: {entry.id}, Timestamp: {entry.timestamp}, Content: {entry.content}")
-                result = extract_meaningful_info(entry.content, user_prompt)
+                result = {"timestamp": entry.timestamp, "content": entry.content}
                 results.append(result)
 
         except ValueError as e:
@@ -232,11 +252,11 @@ def process_query(user_prompt):
 
     # After collecting results, we need to summarize them in human-readable text.
     if results:
-        # Combine the results and limit to 100 words
-        combined_results = " ".join(results)
+        # Sort results chronologically by timestamp (just in case)
+        sorted_results = sorted(results, key=lambda x: x["timestamp"])
 
         # Generate a human-readable story (pass results to AI)
-        story = generate_story(combined_results)
+        story = generate_story(sorted_results)
 
         return f"Story Summary: {story}"
     else:
