@@ -130,47 +130,70 @@ def parse_query_for_dates(user_prompt):
 
 def generate_story(extracted_data):
     """
-    This function takes the extracted event details (with timestamps) and turns it into a full, human-readable story.
-    It uses the AI to summarize the data into a coherent paragraph or story while maintaining chronological order.
+    Generate a coherent story from extracted data in chunks and consolidate into a final summary.
     """
-    # Format the extracted data for the prompt
-    formatted_data = "\n".join(
-        [f"Timestamp: {item['timestamp']} - Event: {item['content']}" for item in extracted_data]
+    # Chunk the data to ensure it stays within the token limit
+    chunks = chunk_data(extracted_data, max_tokens=3000)
+    chunk_summaries = []
+
+    for chunk in chunks:
+        # Format the chunk data
+        formatted_data = "\n".join(
+            [f"Timestamp: {item['timestamp']} - Event: {item['content']}" for item in chunk]
+        )
+
+        # Generate a story for this chunk
+        prompt = (
+            "The following is a list of events, each associated with a specific timestamp. "
+            "Use this information to generate a coherent narrative about what happened during this period. "
+            "The narrative must strictly follow the chronological order of the events based on their timestamps. "
+            "Do not reorder or group events. Ensure all details are included and connected seamlessly. "
+            "Write the story in the second person using the word 'you' to describe the actions or events. "
+            "Avoid passive voice and participle phrases. Write in British English. "
+            "You must jump directly into the story with the word 'you' without any introductory phrases. "
+            "You are forbidden from using the words 'day', 'week', 'weekend', 'month', 'quarter', 'year', or any specific month/day names. "
+            "Limit your response to 100 words. "
+            f"\n\nHere are the events:\n\n{formatted_data}"
+        )
+
+        # Call OpenAI API for the chunk
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are an assistant that summarises journal entries for a given period of time into a coherent narrative."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=500
+        )
+
+        # Append the result
+        story = response['choices'][0]['message']['content'].strip()
+        chunk_summaries.append(story)
+
+    # Combine all chunk summaries into a single text
+    combined_summary_text = "\n".join(chunk_summaries)
+
+    # Generate a final concise story based on all summaries
+    final_prompt = (
+        "The following are summaries of events. Combine them into one coherent narrative about what happened during this period. "
+        "The narrative must strictly follow chronological order, be no more than 100 words, and avoid omitting any important details. "
+        "Write the story in the second person, using 'you' to describe the events. Avoid passive voice, and justify the structure. "
+        "Do not use the words day, week, weekend, month, quarter, year, or specific dates. Write in British English."
+        f"\n\nSummaries:\n{combined_summary_text}"
     )
 
-    # Format the extracted event data for better story context
-    prompt = (
-        "The following is a list of events, each associated with a specific timestamp. "
-        "Use this information to generate a coherent narrative about what happened during this period. "
-        "The narrative must strictly follow the chronological order of the events based on their timestamps. "
-        "Do not reorder or group events. Ensure all details are included and connected seamlessly. "
-        "Write the story in the second person using the word 'you' to describe the actions or events. "
-        "Avoid passive voice and participle phrases. Write in British English. "
-        "You must jump directly into the story with the word 'you' without any introductory phrases. "
-        "You are forbidden from using the words 'day', 'week', 'weekend', 'month', 'quarter', 'year', or any specific month/day names. "
-        "Limit your response to 100 words. "
-        f"\n\nHere are the events:\n\n{extracted_data}"
-    )
-    
-    # Call OpenAI's API to generate a story
-    response = openai.ChatCompletion.create(
+    final_response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[
-            {
-                "role": "system",
-                "content": (
-                    "You are an assistant that generates coherent narratives from chronological events. "
-                    "Your task is to write a story in British English without using specific time units or month/day names."
-                )
-            },
-            {"role": "user", "content": prompt}
+            {"role": "system", "content": "You are an assistant that generates concise summaries from multiple inputs."},
+            {"role": "user", "content": final_prompt}
         ],
-        max_tokens=500  # Limit the AI response to ~100 words (tokens)
+        max_tokens=300  # Limit the final story to around 100 words
     )
 
-    # Extract and return the AI-generated story
-    story = response['choices'][0]['message']['content'].strip()
-    return story
+    final_story = final_response['choices'][0]['message']['content'].strip()
+
+    return final_story
 
 def process_query(user_prompt):
     # Extract the date or date range from the user prompt
@@ -262,6 +285,26 @@ def process_query(user_prompt):
     else:
         logging.debug("No results found for the extracted date.")
         return f"No events found for {extracted_date}."
+
+def chunk_data(data, max_tokens=3000):
+    """Split the data into smaller chunks to avoid exceeding token limits."""
+    chunks = []
+    current_chunk = []
+    current_tokens = 0
+
+    for item in data:
+        item_tokens = len(item["content"].split()) + len(str(item["timestamp"]).split())
+        if current_tokens + item_tokens > max_tokens:
+            chunks.append(current_chunk)
+            current_chunk = []
+            current_tokens = 0
+        current_chunk.append(item)
+        current_tokens += item_tokens
+
+    if current_chunk:  # Add the last chunk if it contains data
+        chunks.append(current_chunk)
+
+    return chunks
 
 def extract_meaningful_info(transcript, user_prompt):
     # Assuming the AI response is a well-formed JSON string.

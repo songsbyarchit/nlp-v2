@@ -6,19 +6,58 @@
     <title>Query Results</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400&display=swap" rel="stylesheet">
     <style>
-        /* Dark theme styles for response lines */
-        body.bg-dark .response-line {
-            background: linear-gradient(to right, #343a40 0%, #343a40 100%); /* Dark background for response lines in dark mode */
+        /* Shared Styles for Action Buttons */
+        .action-button {
+            display: inline-block;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            color: white;
+            border: none;
+            cursor: pointer;
+            opacity: 0; /* Initially hidden */
+            pointer-events: none; /* Disable interaction */
+            transition: opacity 1s ease-in-out;
+            
+            /* Font Properties */
+            font-size: 16px; /* Adjust as needed */
+            font-weight: 400; /* Match 'Playfair Display' weight */
+            line-height: 1.5;
+            font-family: 'Playfair Display', serif; /* Ensures consistent font */
+            text-align: center; /* Centers text within the button/link */
         }
+
+        /* Show Action Buttons */
+        .action-button.visible {
+            opacity: 1; /* Fade in */
+            pointer-events: auto; /* Enable interaction */
+        }
+
+        /* Specific Styles for Copy Text Button */
+        .copy-text-button {
+            background-color: #007bff; /* Blue for Copy Text */
+            margin-right: 10px; /* Space between buttons */
+        }
+
+        /* Specific Styles for Time Travel Link */
+        .time-travel-link {
+            background-color: #28a745; /* Green for Time Travel */
+            /* Remove text-align: center; as it's handled by .action-button */
+        }
+
+        body.bg-dark .response-line {
+            background: linear-gradient(to right, #343a40 0%, #343a40 100%);
+        }
+
         .no-transition {
             transition: none !important;
         }
-        /* Ensure the revealed text lines in dark mode have the correct background */
+
         body.bg-dark .response-line.visible {
             background-position: 0 0;
-            background-color: #343a40; /* Dark background when the text is revealed */
+            background-color: #343a40;
         }
-        
+
         body {
             font-family: 'Playfair Display', serif;
             margin: 0;
@@ -26,40 +65,43 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            transition: background-color 0.4s, color 0.4s; /* Smooth transition */
+            transition: background-color 0.4s, color 0.4s;
         }
 
         /* Light theme styles */
         body.bg-light {
-            background-color: #f8f9fa; /* Light background */
-            color: #343a40; /* Dark text for light mode */
+            background-color: #f8f9fa;
+            color: #343a40;
         }
 
         /* Dark theme styles */
         body.bg-dark {
-            background-color: #343a40; /* Dark background */
-            color: #f8f9fa; /* Light text for dark mode */
+            background-color: #343a40;
+            color: #f8f9fa;
         }
+
         .center-container {
             text-align: center;
             max-width: 800px;
+            width: 100%;
         }
+
         .response-container {
             text-align: left;
             line-height: 2em;
             overflow: hidden;
             position: relative;
             max-width: 800px;
-            width: 800px;
+            width: 100%;
             margin: auto;
-            padding-left: 100px;
-            padding-right: 50px;
-            height: 100%;
+            padding-left: 20px;
+            padding-right: 20px;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: flex-start;
         }
+
         .response-line {
             opacity: 0;
             display: inline-block;
@@ -71,6 +113,7 @@
             transition: opacity 2s ease-in-out, background-position 2s ease-in-out;
             letter-spacing: 0.05em;
         }
+
         .response-line.visible {
             opacity: 1;
             background-position: 0 0;
@@ -82,22 +125,6 @@
             width: auto;
         }
 
-        .back-link {
-            display: inline-block;
-            margin-top: 20px;
-            padding: 10px 20px;
-            color: white;
-            background-color: #007bff;
-            text-decoration: none;
-            border-radius: 5px;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 1s ease-in-out;
-        }
-        .back-link.visible {
-            opacity: 1;
-            visibility: visible;
-        }
         /* Style for theme switch toggle button */
         .switch {
             position: absolute;
@@ -151,18 +178,36 @@
             transform: translateX(26px);
         }
 
-        /* Light theme - button background */
+        /* Light theme - slider background */
         body.bg-light .slider {
             background-color: #ccc;
         }
 
-        /* Dark theme - button background */
+        /* Dark theme - slider background */
         body.bg-dark .slider {
-            background-color: #343a40; /* Dark background for slider */
+            background-color: #343a40;
         }
 
         body.bg-dark .slider:before {
-            background-color: #f8f9fa; /* Light circle in dark mode */
+            background-color: #f8f9fa;
+        }
+
+        /* Buttons Container */
+        .buttons-container {
+            display: flex;
+            align-items: center;
+            justify-content: center; /* Center the buttons horizontally */
+            margin-top: 20px;
+        }
+
+        .copy-text-button {
+            background-color: #007bff; /* Blue for Copy Text */
+            margin-right: 10px; /* Space between buttons */
+        }
+
+        .time-travel-link {
+            background-color: #28a745; /* Green for Time Travel */
+            text-align: center;
         }
     </style>
 </head>
@@ -175,14 +220,30 @@
 
     <div class="center-container">
         <div class="response-container"></div>
-        <a href="/" class="back-link">Time Travel Again? 👀</a>
-    </div>
+        <div class="buttons-container">
+            <button id="copy-text-button" class="action-button">Copy Text 📋</button>
+            <a href="/" class="action-button time-travel-link">Time Travel Again? 👀</a>
+        </div>
+    </div>      
 
     <script>
         const responseText = `{{ response | safe }}`;
         const lines = responseText.match(/.{1,80}(?:\s|$)/g);
+        console.log("Lines array:", lines); // Log the content of the lines array
+        console.log("Lines length:", lines ? lines.length : "undefined or null"); // Log the length of the lines array
         const responseContainer = document.querySelector('.response-container');
-        const backLink = document.querySelector('.back-link');
+        const backLink = document.querySelector('.time-travel-link');
+        console.log("Time Travel Link:", backLink); // Should log the <a> element
+        const copyTextButton = document.getElementById("copy-text-button");
+        console.log("Copy Text Button:", copyTextButton); // Log the copy text button
+
+        copyTextButton.addEventListener("click", () => {
+            navigator.clipboard.writeText(responseText).then(() => {
+                alert("Text copied to clipboard!");
+            }).catch(err => {
+                alert("Failed to copy text: " + err);
+            });
+        });
 
         function revealLines() {
             lines.forEach((line, index) => {
@@ -192,12 +253,22 @@
                 div.style.marginTop = '0.3em';
                 responseContainer.appendChild(div);
 
-                setTimeout(() => div.classList.add('visible'), index * 1200);
+                setTimeout(() => div.classList.add('visible'), index * 900);
             });
 
+            // Calculate total time to reveal all lines
+            const totalLines = lines && lines.length ? lines.length : 0;
+            const totalRevealTime = totalLines * 900; // Each line takes 900ms
+
+            // Reveal "Copy Text" button 1 second after the last line
+            setTimeout(() => {
+                copyTextButton.classList.add('visible');
+            }, totalRevealTime + 1000);
+
+            // Reveal "Time Travel Again" link 1 second after the "Copy Text" button
             setTimeout(() => {
                 backLink.classList.add('visible');
-            }, lines.length * 1200 + 1000);
+            }, totalRevealTime + 2000);
         }
 
         window.onload = revealLines;
