@@ -12,31 +12,25 @@
             padding: 10px 20px;
             text-decoration: none;
             border-radius: 5px;
-            color: white;
             border: none;
             cursor: pointer;
             opacity: 0; /* Initially hidden */
             pointer-events: none; /* Disable interaction */
-            transition: opacity 1s ease-in-out;
-            
+            transition: opacity 1s ease-in-out, background-color 0.3s ease-in-out;
+
             /* Font Properties */
-            font-size: 16px; /* Adjust as needed */
-            font-weight: 400; /* Match 'Playfair Display' weight */
+            font-size: 16px;
+            font-weight: 400;
             line-height: 1.5;
-            font-family: 'Playfair Display', serif; /* Ensures consistent font */
-            text-align: center; /* Centers text within the button/link */
+            font-family: 'Playfair Display', serif;
+            text-align: center;
+            margin: 0 15px; /* Add horizontal space between buttons */
         }
 
         /* Show Action Buttons */
         .action-button.visible {
-            opacity: 1; /* Fade in */
-            pointer-events: auto; /* Enable interaction */
-        }
-
-        /* Specific Styles for Copy Text Button */
-        .copy-text-button {
-            background-color: #007bff; /* Blue for Copy Text */
-            margin-right: 10px; /* Space between buttons */
+            opacity: 1;
+            pointer-events: auto;
         }
 
         /* Specific Styles for Time Travel Link */
@@ -53,9 +47,9 @@
             transition: none !important;
         }
 
-        body.bg-dark .response-line.visible {
-            background-position: 0 0;
-            background-color: #343a40;
+        body.bg-dark {
+            background-color: #343a40 !important; /* Enforce consistency */
+            color: #f8f9fa;
         }
 
         body {
@@ -74,10 +68,9 @@
             color: #343a40;
         }
 
-        /* Dark theme styles */
-        body.bg-dark {
-            background-color: #343a40;
-            color: #f8f9fa;
+        html body.bg-dark {
+            background-color: #343a40 !important; /* Ensure it's applied */
+            color: #f8f9fa !important; /* Ensure text is consistent */
         }
 
         .center-container {
@@ -91,15 +84,15 @@
             line-height: 2em;
             overflow: hidden;
             position: relative;
-            max-width: 800px;
+            max-width: 800px; /* Adjust width to your preference */
             width: 100%;
-            margin: auto;
-            padding-left: 20px;
-            padding-right: 20px;
+            margin: 0 auto; /* Center the container horizontally */
+            padding: 20px;
             display: flex;
             flex-direction: column;
             justify-content: center;
-            align-items: flex-start;
+            align-items: center; /* Center the block itself within its parent */
+            transform: translateX(50px); /* Fine-tune centering */
         }
 
         .response-line {
@@ -122,7 +115,7 @@
 
         .response-line:last-child {
             text-align: left;
-            width: auto;
+            width: 100%; /* Ensures consistent alignment */
         }
 
         /* Style for theme switch toggle button */
@@ -200,14 +193,26 @@
             margin-top: 20px;
         }
 
-        .copy-text-button {
-            background-color: #007bff; /* Blue for Copy Text */
-            margin-right: 10px; /* Space between buttons */
+        /* Dark Theme - Copy Text Button */
+        body.bg-dark .copy-text-button {
+            background-color: #f8f9fa !important; /* Light grey */
+            color: #343a40 !important; /* Dark text */
         }
 
-        .time-travel-link {
-            background-color: #28a745; /* Green for Time Travel */
-            text-align: center;
+        /* Dark Theme - Time Travel Link */
+        body.bg-dark .time-travel-link {
+            background-color: #f8f9fa !important; /* Light grey */
+            color: #343a40 !important; /* Dark text */
+        }
+
+        body.bg-light .copy-text-button {
+            background-color: #add8e6 !important; /* Baby blue */
+            color: #343a40 !important; /* Dark text */
+        }
+
+        body.bg-light .time-travel-link {
+            background-color: #add8e6 !important; /* Baby blue */
+            color: #343a40 !important; /* Dark text */
         }
     </style>
 </head>
@@ -281,10 +286,14 @@
             document.body.classList.add("bg-dark");
             document.body.classList.remove("bg-light");
             themeToggleButton.checked = true;
+            copyTextButton.style.backgroundColor = ''; // Reset to default
+            copyTextButton.style.color = ''; // Reset to default
         } else {
             document.body.classList.add("bg-light");
             document.body.classList.remove("bg-dark");
             themeToggleButton.checked = false;
+            copyTextButton.style.backgroundColor = '#add8e6'; // Baby blue
+            copyTextButton.style.color = '#343a40'; // Ensure text remains visible
         }
 
         themeToggleButton.addEventListener("change", () => {
@@ -293,18 +302,26 @@
                 document.body.classList.add("bg-dark");
                 document.body.classList.remove("bg-light");
                 localStorage.setItem("theme", "dark");
+
+                // Update Copy Text Button styling for dark mode
+                copyTextButton.style.backgroundColor = ''; // Reset to default
+                copyTextButton.style.color = ''; // Reset to default
             } else {
                 document.body.classList.add("bg-light");
                 document.body.classList.remove("bg-dark");
                 localStorage.setItem("theme", "light");
+
+                // Update Copy Text Button styling for light mode
+                copyTextButton.style.backgroundColor = '#add8e6'; // Baby blue
+                copyTextButton.style.color = '#343a40'; // Ensure text remains visible
             }
 
-             // Re-enable the transition after a brief delay
+            // Re-enable the transition after a brief delay
             setTimeout(() => {
-                document.body.classList.remove('no-transition');  // Re-enable transition
+                document.body.classList.remove('no-transition'); // Re-enable transition
             }, 100); // Wait for the theme to fully switch before re-enabling the transition
-            
         });
+
     </script>
 </body>
 </html>
