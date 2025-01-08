@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loading...</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400&display=swap" rel="stylesheet">
+    <style>
+        /* Updated animation for slower fade */
+        @keyframes fadeInOut {
+            0% {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            30% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            70% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+        }
+
+        /* Updated loading text styles */
+        .loading-text {
+            margin-top: 20px;
+            font-size: 20px;
+            font-style: italic;
+            animation: fadeInOut 6s infinite ease-in-out; /* Slow down the fade */
+        }
+
+        /* Shared Styles for Action Buttons */
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: 'Playfair Display', serif;
+            transition: background-color 0.4s, color 0.4s;
+        }
+
+        .clock-container {
+            margin-right: 80px; /* Adjust this value for desired gap */
+            margin-top: 10px;
+        }
+
+        /* Dark Mode Styles */
+        body.bg-dark {
+            background-color: #343a40 !important;
+            color: #f8f9fa;
+        }
+
+        /* Light Mode Styles */
+        body.bg-light {
+            background-color: #f8f9fa;
+            color: #343a40;
+        }
+
+        .clock-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+                @keyframes ring-flash {
+            0% {
+                box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+            }
+            50% {
+                box-shadow: 0 0 25px rgba(255, 255, 255, 1);
+            }
+            100% {
+                box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+            }
+        }
+
+        .clock-ring {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            border: 5px solid transparent;
+            border-top: 10px solid #ccc; /* Light color for dark mode */
+            animation: spin 1.5s infinite linear, ring-flash 1.5s infinite alternate;
+        }
+
+        .clock-ring.bg-dark {
+            border-top: 5px solid #f8f9fa; /* Light color for dark mode */
+        }
+
+        .clock-emoji {
+            font-size: 60px;
+        }
+
+        /* Animation to fill the ring */
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(-360deg);
+            }
+        }
+
+        /* Center the clock and emoji */
+        .loading-text {
+            margin-top: 20px;
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+    <script>
+        // Array of random phrases related to time travel
+        const phrases = [
+            "A journey into the past is unfolding...",
+            "The memories are aligning, just a moment...",
+            "Time is being woven together... please wait...",
+            "The echoes of the past are calling...",
+            "Gently shifting through the corridors of time...",
+            "Memories from another time are coming together...",
+            "Bridging moments across time... just a little longer...",
+            "The threads of your past are being woven...",
+            "A glimpse of yesterday is forming...",
+            "Almost there... the past is almost within reach..."
+        ];
+    
+        // Wait for the document to be fully loaded
+        document.addEventListener("DOMContentLoaded", () => {
+            // Select a random phrase from the array
+            const randomPhrase = phrases[Math.floor(Math.random() * phrases.length)];
+        
+            // Set the random phrase to the loading text element
+            document.querySelector('.loading-text').textContent = randomPhrase;
+    
+            // Apply the saved theme state from localStorage
+            const savedTheme = localStorage.getItem("theme");
+            if (savedTheme === "dark") {
+                document.body.classList.add("bg-dark");
+                document.body.classList.remove("bg-light");
+            } else {
+                document.body.classList.add("bg-light");
+                document.body.classList.remove("bg-dark");
+            }
+        });
+    </script>
+        
+    <div class="clock-container">
+        <div class="clock-ring"></div>
+        <div class="clock-emoji">🕰️</div>
+    </div>
+    <div class="loading-text">
+        <!-- The random phrase will be inserted here -->
+    </div>
+    
+    <script>
+        // Simulate a delay for the backend processing
+        setTimeout(() => {
+            // Redirect to the results page or another page once the query is processed
+            window.location.href = "/query_results?user_prompt={{ user_prompt }}";  // Pass user_prompt as query parameter
+        }, 3000); // 3 seconds delay for demonstration
+    </script>      
+</body>
+</html>

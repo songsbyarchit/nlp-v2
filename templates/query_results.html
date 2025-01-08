@@ -293,7 +293,7 @@
         }
 
         copyTextButton.addEventListener("click", () => {
-            const visibleText = [...document.querySelectorAll('.response-line.visible')].map(line => line.textContent.trim()).join(''); // Removed '\n'
+            const visibleText = [...document.querySelectorAll('.response-line.visible')].map(line => line.textContent.trim()).join(' '); // Removed '\n'
             navigator.clipboard.writeText(visibleText).then(() => {
                 console.log("Text copied to clipboard!");
             }).catch(err => {

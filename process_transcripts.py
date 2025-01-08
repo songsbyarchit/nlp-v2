@@ -7,7 +7,7 @@ import json
 from sqlalchemy import create_engine, Column, Integer, Text, DateTime
 from sqlalchemy.orm import sessionmaker, declarative_base
 from datetime import datetime, timezone, timedelta
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, redirect, url_for
 import threading
 import logging
 import pprint  # For pretty-printing data
@@ -461,8 +461,24 @@ def query():
     # Log the user prompt
     logging.debug(f"User Prompt: {user_prompt}")
     
+    # Redirect to loading page immediately before processing
+    return redirect(url_for('loading', user_prompt=user_prompt))  # Pass the user prompt to loading page
+
+@app.route('/loading')
+def loading():
+    # Get the user prompt passed from the query route
+    user_prompt = request.args.get('user_prompt', '')
+    
+    # Render the loading page immediately
+    return render_template('loading.html', user_prompt=user_prompt)  # Pass user_prompt to loading page
+
+@app.route("/query_results")
+def query_results():
+    # Get the user prompt passed from the loading page
+    user_prompt = request.args.get('user_prompt', '')  # Grab the user query from URL parameters
+    
     # Process the query with the user prompt
-    response = process_query(user_prompt)  # Pass user_prompt here
+    response = process_query(user_prompt)  # Process the query logic
     
     # Render the query results page with the response
     return render_template("query_results.html", response=response, prompt=user_prompt)
