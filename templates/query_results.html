@@ -236,21 +236,10 @@
     <script>
         const responseText = `{{ response | safe }}`;
         const lines = responseText.match(/.{1,80}(?:\s|$)/g);
-        console.log("Lines array:", lines); // Log the content of the lines array
-        console.log("Lines length:", lines ? lines.length : "undefined or null"); // Log the length of the lines array
         const responseContainer = document.querySelector('.response-container');
         const backLink = document.querySelector('.time-travel-link');
-        console.log("Time Travel Link:", backLink); // Should log the <a> element
         const copyTextButton = document.getElementById("copy-text-button");
-        console.log("Copy Text Button:", copyTextButton); // Log the copy text button
-
-        copyTextButton.addEventListener("click", () => {
-            navigator.clipboard.writeText(responseText).then(() => {
-                alert("Text copied to clipboard!");
-            }).catch(err => {
-                alert("Failed to copy text: " + err);
-            });
-        });
+        const readAloudButton = document.getElementById("read-aloud-button");
 
     function revealLines() {
         lines.forEach((line, index) => {
@@ -270,18 +259,18 @@
         // Reveal "Read Aloud" button 1 second after the last line
         setTimeout(() => {
             document.getElementById("read-aloud-button").classList.add('visible');
-        }, totalRevealTime + 1000);
+        }, totalRevealTime + 500);
 
-        // Reveal "Copy Text" button 1 second after "Read Aloud" button
+        // Reveal "Copy Text" button 0.5 seconds after "Read Aloud" button
         setTimeout(() => {
             copyTextButton.classList.add('visible');
-        }, totalRevealTime + 2000);
+        }, totalRevealTime + 750);
 
-        // Reveal "Time Travel Again" link 1 second after the "Copy Text" button
+        // Reveal "Time Travel Again" link 0.5 seconds after the "Copy Text" button
         setTimeout(() => {
             backLink.classList.add('visible');
-        }, totalRevealTime + 3000);
-    }
+        }, totalRevealTime + 1000);
+            }
 
         window.onload = revealLines;
 
@@ -302,6 +291,15 @@
             copyTextButton.style.backgroundColor = '#add8e6'; // Baby blue
             copyTextButton.style.color = '#343a40'; // Ensure text remains visible
         }
+
+        copyTextButton.addEventListener("click", () => {
+            const visibleText = [...document.querySelectorAll('.response-line.visible')].map(line => line.textContent.trim()).join(''); // Removed '\n'
+            navigator.clipboard.writeText(visibleText).then(() => {
+                console.log("Text copied to clipboard!");
+            }).catch(err => {
+                console.error("Failed to copy text: " + err);
+            });
+        });
 
         themeToggleButton.addEventListener("change", () => {
             document.body.classList.add('no-transition');
@@ -329,12 +327,10 @@
             }, 100); // Wait for the theme to fully switch before re-enabling the transition
         });
 
-                const readAloudButton = document.getElementById("read-aloud-button");
-
         readAloudButton.addEventListener("click", () => {
             const textToRead = responseContainer.textContent.trim(); // Get the text to read
             if (!textToRead) {
-                alert("No text available to read aloud.");
+                console.error("No text available to read aloud.");
                 return;
             }
 
