@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Query Results</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         /* Shared Styles for Action Buttons */
         .action-button {
@@ -19,7 +20,7 @@
             transition: opacity 1s ease-in-out, background-color 0.3s ease-in-out;
 
             /* Font Properties */
-            font-size: 16px;
+            font-size: 12px;
             font-weight: 400;
             line-height: 1.5;
             font-family: 'Playfair Display', serif;
@@ -93,7 +94,7 @@
             width: 100%;
             margin: 0 auto; /* Center the block within its parent */
             padding: 20px;
-            transform: translateX(100px); /* Slightly adjust to the right */
+            transform: translateX(70px); /* Slightly adjust to the right */
         }
 
         .buttons-container {
@@ -230,6 +231,7 @@
         <div class="buttons-container">
             <button id="read-aloud-button" class="action-button">Read Aloud 🔊</button>
             <button id="copy-text-button" class="action-button">Copy Text 📋</button>
+            <button id="download-pdf-button" class="action-button">Download as PDF 📄</button>
             <a href="/" class="action-button time-travel-link">Time Travel Again? 👀</a>
         </div>
     </div>    
@@ -240,42 +242,70 @@
         const backLink = document.querySelector('.time-travel-link');
         const copyTextButton = document.getElementById("copy-text-button");
         const readAloudButton = document.getElementById("read-aloud-button");
-
-    function revealLines() {
-        lines.forEach((line, index) => {
-            const div = document.createElement('div');
-            div.className = 'response-line';
-            div.textContent = line.trim();
-            div.style.marginTop = '0.3em';
-            responseContainer.appendChild(div);
-
-            setTimeout(() => div.classList.add('visible'), index * 900);
-        });
-
-        // Calculate total time to reveal all lines
-        const totalLines = lines && lines.length ? lines.length : 0;
-        const totalRevealTime = totalLines * 900; // Each line takes 900ms
-
-        // Reveal "Read Aloud" button 1 second after the last line
-        setTimeout(() => {
-            document.getElementById("read-aloud-button").classList.add('visible');
-        }, totalRevealTime + 500);
-
-        // Reveal "Copy Text" button 0.5 seconds after "Read Aloud" button
-        setTimeout(() => {
-            copyTextButton.classList.add('visible');
-        }, totalRevealTime + 750);
-
-        // Reveal "Time Travel Again" link 0.5 seconds after the "Copy Text" button
-        setTimeout(() => {
-            backLink.classList.add('visible');
-        }, totalRevealTime + 1000);
-            }
-
+        const downloadPdfButton = document.getElementById("download-pdf-button");
+    
+        function revealLines() {
+            lines.forEach((line, index) => {
+                const div = document.createElement('div');
+                div.className = 'response-line';
+                div.textContent = line.trim();
+                div.style.marginTop = '0.3em';
+                responseContainer.appendChild(div);
+    
+                setTimeout(() => div.classList.add('visible'), index * 900);
+            });
+    
+            // Calculate total time to reveal all lines
+            const totalLines = lines && lines.length ? lines.length : 0;
+            const totalRevealTime = totalLines * 900; // Each line takes 900ms
+    
+            // Reveal "Read Aloud" button 1 second after the last line
+            setTimeout(() => {
+                document.getElementById("read-aloud-button").classList.add('visible');
+            }, totalRevealTime + 500);
+    
+            // Reveal "Copy Text" button 0.5 seconds after "Read Aloud" button
+            setTimeout(() => {
+                copyTextButton.classList.add('visible');
+            }, totalRevealTime + 750);
+    
+            // Reveal "Download as PDF" button 0.5 seconds after the "Copy Text" button
+            setTimeout(() => {
+                downloadPdfButton.classList.add('visible');
+            }, totalRevealTime + 1000);
+    
+            // Reveal "Time Travel Again" link 0.5 seconds after the "Download as PDF" button
+            setTimeout(() => {
+                backLink.classList.add('visible');
+            }, totalRevealTime + 1500);
+        }
+    
         window.onload = revealLines;
-
+    
+        // Download PDF functionality
+        downloadPdfButton.addEventListener("click", () => {
+            // Collect visible text content
+            const visibleText = [...document.querySelectorAll('.response-line.visible')]
+                .map(line => line.textContent.trim()).join('\n');
+    
+            // Create a new jsPDF instance
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+    
+            // Add content to the PDF
+            doc.setFont("helvetica");
+            doc.setFontSize(12);
+            doc.text("Your Response:", 10, 10); // Title at the top
+    
+            // Add the response text, with proper formatting
+            doc.text(visibleText, 10, 20);
+    
+            // Save the PDF
+            doc.save("response.pdf");
+        });
+    
         const themeToggleButton = document.getElementById("theme-toggle");
-
+    
         // Apply the saved theme state from localStorage
         const savedTheme = localStorage.getItem("theme");
         if (savedTheme === "dark") {
@@ -291,7 +321,7 @@
             copyTextButton.style.backgroundColor = '#add8e6'; // Baby blue
             copyTextButton.style.color = '#343a40'; // Ensure text remains visible
         }
-
+    
         copyTextButton.addEventListener("click", () => {
             const visibleText = [...document.querySelectorAll('.response-line.visible')].map(line => line.textContent.trim()).join(' '); // Removed '\n'
             navigator.clipboard.writeText(visibleText).then(() => {
@@ -300,14 +330,14 @@
                 console.error("Failed to copy text: " + err);
             });
         });
-
+    
         themeToggleButton.addEventListener("change", () => {
             document.body.classList.add('no-transition');
             if (themeToggleButton.checked) {
                 document.body.classList.add("bg-dark");
                 document.body.classList.remove("bg-light");
                 localStorage.setItem("theme", "dark");
-
+    
                 // Update Copy Text Button styling for dark mode
                 copyTextButton.style.backgroundColor = ''; // Reset to default
                 copyTextButton.style.color = ''; // Reset to default
@@ -315,29 +345,29 @@
                 document.body.classList.add("bg-light");
                 document.body.classList.remove("bg-dark");
                 localStorage.setItem("theme", "light");
-
+    
                 // Update Copy Text Button styling for light mode
                 copyTextButton.style.backgroundColor = '#add8e6'; // Baby blue
                 copyTextButton.style.color = '#343a40'; // Ensure text remains visible
             }
-
+    
             // Re-enable the transition after a brief delay
             setTimeout(() => {
                 document.body.classList.remove('no-transition'); // Re-enable transition
             }, 100); // Wait for the theme to fully switch before re-enabling the transition
         });
-
+    
         readAloudButton.addEventListener("click", () => {
             const textToRead = responseContainer.textContent.trim(); // Get the text to read
             if (!textToRead) {
                 console.error("No text available to read aloud.");
                 return;
             }
-
+    
             const speechSynthesisUtterance = new SpeechSynthesisUtterance(textToRead);
             speechSynthesisUtterance.lang = "en-US"; // Set the language (adjust as needed)
             speechSynthesis.speak(speechSynthesisUtterance);
         });
-    </script>
+    </script>    
 </body>
 </html>
