@@ -228,11 +228,11 @@
     <div class="center-container">
         <div class="response-container"></div>
         <div class="buttons-container">
+            <button id="read-aloud-button" class="action-button">Read Aloud 🔊</button>
             <button id="copy-text-button" class="action-button">Copy Text 📋</button>
             <a href="/" class="action-button time-travel-link">Time Travel Again? 👀</a>
         </div>
-    </div>      
-
+    </div>    
     <script>
         const responseText = `{{ response | safe }}`;
         const lines = responseText.match(/.{1,80}(?:\s|$)/g);
@@ -252,31 +252,36 @@
             });
         });
 
-        function revealLines() {
-            lines.forEach((line, index) => {
-                const div = document.createElement('div');
-                div.className = 'response-line';
-                div.textContent = line.trim();
-                div.style.marginTop = '0.3em';
-                responseContainer.appendChild(div);
+    function revealLines() {
+        lines.forEach((line, index) => {
+            const div = document.createElement('div');
+            div.className = 'response-line';
+            div.textContent = line.trim();
+            div.style.marginTop = '0.3em';
+            responseContainer.appendChild(div);
 
-                setTimeout(() => div.classList.add('visible'), index * 900);
-            });
+            setTimeout(() => div.classList.add('visible'), index * 900);
+        });
 
-            // Calculate total time to reveal all lines
-            const totalLines = lines && lines.length ? lines.length : 0;
-            const totalRevealTime = totalLines * 900; // Each line takes 900ms
+        // Calculate total time to reveal all lines
+        const totalLines = lines && lines.length ? lines.length : 0;
+        const totalRevealTime = totalLines * 900; // Each line takes 900ms
 
-            // Reveal "Copy Text" button 1 second after the last line
-            setTimeout(() => {
-                copyTextButton.classList.add('visible');
-            }, totalRevealTime + 1000);
+        // Reveal "Read Aloud" button 1 second after the last line
+        setTimeout(() => {
+            document.getElementById("read-aloud-button").classList.add('visible');
+        }, totalRevealTime + 1000);
 
-            // Reveal "Time Travel Again" link 1 second after the "Copy Text" button
-            setTimeout(() => {
-                backLink.classList.add('visible');
-            }, totalRevealTime + 2000);
-        }
+        // Reveal "Copy Text" button 1 second after "Read Aloud" button
+        setTimeout(() => {
+            copyTextButton.classList.add('visible');
+        }, totalRevealTime + 2000);
+
+        // Reveal "Time Travel Again" link 1 second after the "Copy Text" button
+        setTimeout(() => {
+            backLink.classList.add('visible');
+        }, totalRevealTime + 3000);
+    }
 
         window.onload = revealLines;
 
@@ -324,6 +329,19 @@
             }, 100); // Wait for the theme to fully switch before re-enabling the transition
         });
 
+                const readAloudButton = document.getElementById("read-aloud-button");
+
+        readAloudButton.addEventListener("click", () => {
+            const textToRead = responseContainer.textContent.trim(); // Get the text to read
+            if (!textToRead) {
+                alert("No text available to read aloud.");
+                return;
+            }
+
+            const speechSynthesisUtterance = new SpeechSynthesisUtterance(textToRead);
+            speechSynthesisUtterance.lang = "en-US"; // Set the language (adjust as needed)
+            speechSynthesis.speak(speechSynthesisUtterance);
+        });
     </script>
 </body>
 </html>
