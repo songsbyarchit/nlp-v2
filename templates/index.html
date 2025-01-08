@@ -206,6 +206,18 @@
             }
         });
 
+        // Apply the saved theme state from localStorage
+        const savedTheme = localStorage.getItem("theme");
+        if (savedTheme === "dark") {
+            document.body.classList.add("bg-dark");
+            document.body.classList.remove("bg-light");
+            document.getElementById("theme-toggle").checked = true;
+        } else {
+            document.body.classList.add("bg-light");
+            document.body.classList.remove("bg-dark");
+            document.getElementById("theme-toggle").checked = false;
+        }
+
         const examples = [
             "What did I do on December 3rd?",
             "Which places did I visit in March 2024?",
