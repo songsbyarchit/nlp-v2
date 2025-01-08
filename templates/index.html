@@ -193,17 +193,19 @@
         const themeToggleButton = document.getElementById("theme-toggle");
 
         themeToggleButton.addEventListener("change", () => {
-            // Toggle dark theme on body
-            document.body.classList.toggle("bg-dark");
+        // Toggle dark theme on body
+        document.body.classList.toggle("bg-dark");
 
-            // Toggle the text color for placeholder text
-            const inputBox = document.getElementById("query");
-            if (document.body.classList.contains("bg-dark")) {
-                inputBox.style.color = "#f8f9fa"; // Light color text in dark mode
-            } else {
-                inputBox.style.color = "#343a40"; // Dark color text in light mode
-            }
-        });
+        // Toggle the text color for placeholder text
+        const inputBox = document.getElementById("query");
+        if (document.body.classList.contains("bg-dark")) {
+            inputBox.style.color = "#f8f9fa"; // Light color text in dark mode
+            localStorage.setItem("theme", "dark"); // Save theme to localStorage
+        } else {
+            inputBox.style.color = "#343a40"; // Dark color text in light mode
+            localStorage.setItem("theme", "light"); // Save theme to localStorage
+        }
+    });
 
         // Apply the saved theme state from localStorage
         const savedTheme = localStorage.getItem("theme");

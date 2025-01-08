@@ -31,7 +31,7 @@
             margin-top: 20px;
             font-size: 20px;
             font-style: italic;
-            animation: fadeInOut 6s infinite ease-in-out; /* Slow down the fade */
+            animation: fadeInOut 20s ease-in-out; /* Run once */
         }
 
         /* Shared Styles for Action Buttons */
@@ -118,40 +118,93 @@
 </head>
 <body>
     <script>
-        // Array of random phrases related to time travel
-        const phrases = [
-            "A journey into the past is unfolding...",
-            "The memories are aligning, just a moment...",
-            "Time is being woven together... please wait...",
-            "The echoes of the past are calling...",
-            "Gently shifting through the corridors of time...",
-            "Memories from another time are coming together...",
-            "Bridging moments across time... just a little longer...",
-            "The threads of your past are being woven...",
-            "A glimpse of yesterday is forming...",
-            "Almost there... the past is almost within reach..."
-        ];
-    
-        // Wait for the document to be fully loaded
-        document.addEventListener("DOMContentLoaded", () => {
-            // Select a random phrase from the array
-            const randomPhrase = phrases[Math.floor(Math.random() * phrases.length)];
-        
-            // Set the random phrase to the loading text element
-            document.querySelector('.loading-text').textContent = randomPhrase;
-    
-            // Apply the saved theme state from localStorage
-            const savedTheme = localStorage.getItem("theme");
-            if (savedTheme === "dark") {
-                document.body.classList.add("bg-dark");
-                document.body.classList.remove("bg-light");
-            } else {
-                document.body.classList.add("bg-light");
-                document.body.classList.remove("bg-dark");
+const savedTheme = localStorage.getItem("theme");
+if (savedTheme === "dark") {
+    document.body.classList.add("bg-dark");
+    document.body.classList.remove("bg-light");
+    console.log('Dark theme applied'); // Debugging theme change
+} else {
+    document.body.classList.add("bg-light");
+    document.body.classList.remove("bg-dark");
+    console.log('Light theme applied'); // Debugging theme change
+}
+document.addEventListener("DOMContentLoaded", () => {
+    const phrases = [
+        "A journey into the past is unfolding...",
+        "The memories are aligning, just a moment...",
+        "Time is being woven together... please wait...",
+        "The echoes of the past are calling...",
+        "Gently shifting through the corridors of time...",
+        "Memories from another time are coming together...",
+        "Bridging moments across time... just a little longer...",
+        "The threads of your past are being woven...",
+        "A glimpse of yesterday is forming...",
+        "Almost there... the past is almost within reach..."
+    ];
+
+    let phraseQueue = [];
+    let lastIndex = -1;
+
+    // Function to fill the queue with 5 unique phrases
+    function fillQueue() {
+        phraseQueue = [];
+        while (phraseQueue.length < 5) {
+            const randomIndex = Math.floor(Math.random() * phrases.length);
+            if (!phraseQueue.includes(phrases[randomIndex]) && randomIndex !== lastIndex) {
+                phraseQueue.push(phrases[randomIndex]);
+                lastIndex = randomIndex;
             }
-        });
-    </script>
+        }
+    }
+
+    // Function to get and remove the first phrase in the queue
+    function getNextPhrase() {
+        return phraseQueue.shift();
+    }
+
+    // Set the initial phrase
+    fillQueue();
+    document.querySelector('.loading-text').textContent = getNextPhrase();
+    console.log('Initial phrase set'); // Debugging when the initial phrase is set
+
+    // Set interval to change the phrase every 4 seconds
+    let intervalID;
+
+    function startPhraseChange() {
+        console.log('Starting phrase change interval...'); // Debugging when interval starts
+        intervalID = setInterval(() => {
+            console.log('Changing phrase...'); // Debugging phrase change
+            changePhrase();
+        }, 20000); // Update phrase every 4 seconds
+    }
+
+    function changePhrase() {
+        const newPhrase = getNextPhrase();
+        const loadingTextElement = document.querySelector('.loading-text');
+
+        // Restart the animation by removing and adding the animation class
+        loadingTextElement.classList.remove('fadeInOut');
+        loadingTextElement.offsetHeight; // Trigger a reflow to restart animation
+        loadingTextElement.classList.add('fadeInOut');
         
+        loadingTextElement.textContent = newPhrase;
+        console.log(`Changed phrase to: ${newPhrase}`); // Debugging the new phrase after change
+
+        // If no more phrases are left, stop the interval and refill queue
+        if (phraseQueue.length === 0) {
+            console.log('Queue is empty, refilling...');
+            fillQueue();
+        }
+    }
+
+    // Delay the start of the interval to ensure the first phrase is visible
+    setTimeout(() => {
+        console.log('Starting phrase change after initial delay...'); // Debugging
+        startPhraseChange();
+    }, 2000); // Start the interval after 2 seconds to ensure initial phrase is visible
+});
+        </script>        
+
     <div class="clock-container">
         <div class="clock-ring"></div>
         <div class="clock-emoji">🕰️</div>
@@ -166,6 +219,7 @@
             // Redirect to the results page or another page once the query is processed
             window.location.href = "/query_results?user_prompt={{ user_prompt }}";  // Pass user_prompt as query parameter
         }, 3000); // 3 seconds delay for demonstration
-    </script>      
+    </script>
+
 </body>
 </html>
