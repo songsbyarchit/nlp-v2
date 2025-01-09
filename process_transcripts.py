@@ -55,7 +55,7 @@ load_dotenv()
 # Set OpenAI API key
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-app = Flask(__name__)
+app = Flask(__name__, static_url_path='/static', static_folder='templates/static')
 
 # Function to load transcripts from a JSON file
 def load_transcripts(file_path="transcripts.json"):

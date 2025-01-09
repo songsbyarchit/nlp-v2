@@ -6,13 +6,15 @@
     <title>Query Results</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="{{ url_for('static', filename='playfair.js') }}"></script>    
+    <img src="{{ url_for('static', filename='cream_paper.jpg') }}" style="display: none;">    
     <style>
         /* Shared Styles for Action Buttons */
         .action-button {
             display: inline-block;
             padding: 10px 20px;
             text-decoration: none;
-            border-radius: 5px;
+            border-radius: 25px;
             border: none;
             cursor: pointer;
             opacity: 0; /* Initially hidden */
@@ -20,7 +22,7 @@
             transition: opacity 1s ease-in-out, background-color 0.3s ease-in-out;
 
             /* Font Properties */
-            font-size: 12px;
+            font-size: 22px;
             font-weight: 400;
             line-height: 1.5;
             font-family: 'Playfair Display', serif;
@@ -102,6 +104,7 @@
             justify-content: center; /* Center the buttons horizontally */
             align-items: center;
             margin-top: 20px;
+            margin-left: -50px;
             gap: 15px; /* Add space between buttons */
             width: 100%; /* Ensure the container spans the width */
         }
@@ -208,14 +211,34 @@
             color: #343a40 !important; /* Dark text */
         }
 
-        body.bg-light .copy-text-button {
-            background-color: #add8e6 !important; /* Baby blue */
+        body.bg-dark .read-aloud-button {
+            background-color: #f8f9fa !important; /* Light grey */
             color: #343a40 !important; /* Dark text */
         }
 
-        body.bg-light .time-travel-link {
-            background-color: #add8e6 !important; /* Baby blue */
+        body.bg-dark .download-pdf-button {
+            background-color: #f8f9fa !important; /* Light grey */
             color: #343a40 !important; /* Dark text */
+        }
+
+        body.bg-light .copy-text-button {
+            background-color: #f8f9fa !important; /* Dark gray */
+            color: #f8f9fa !important; /* Light text for contrast */
+        }
+
+        body.bg-light .time-travel-link {
+            background-color: #f8f9fa !important; /* Dark gray */
+            color: #f8f9fa !important; /* Light text for contrast */
+        }
+
+        body.bg-light .read-aloud-button {
+            background-color: #f8f9fa !important; /* Dark gray */
+            color: #f8f9fa !important; /* Ensure text remains visible */
+        }
+
+        body.bg-light .download-pdf-button {
+            background-color: #f8f9fa !important; /* Dark gray */
+            color: #f8f9fa !important; /* Ensure text remains visible */
         }
     </style>
 </head>
@@ -229,10 +252,10 @@
     <div class="center-container">
         <div class="response-container"></div>
         <div class="buttons-container">
-            <button id="read-aloud-button" class="action-button">Read Aloud 🔊</button>
-            <button id="copy-text-button" class="action-button">Copy Text 📋</button>
-            <button id="download-pdf-button" class="action-button">Download as PDF 📄</button>
-            <a href="/" class="action-button time-travel-link">Time Travel Again? 👀</a>
+            <button id="read-aloud-button" class="action-button read-aloud-button">🔊</button>
+            <button id="copy-text-button" class="action-button copy-text-button">📋</button>
+            <button id="download-pdf-button" class="action-button download-pdf-button">📄</button>
+            <a href="/" class="action-button time-travel-link">↩️</a>            
         </div>
     </div>    
     <script>
@@ -284,26 +307,36 @@
     
         // Download PDF functionality
         downloadPdfButton.addEventListener("click", () => {
-            // Collect visible text content
             const visibleText = [...document.querySelectorAll('.response-line.visible')]
-                .map(line => line.textContent.trim()).join('\n');
-    
-            // Create a new jsPDF instance
+                .map(line => line.textContent.trim()).join(' ');
+
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
-    
-            // Add content to the PDF
-            doc.setFont("helvetica");
-            doc.setFontSize(12);
-            doc.text("Your Response:", 10, 10); // Title at the top
-    
-            // Add the response text, with proper formatting
-            doc.text(visibleText, 10, 20);
-    
-            // Save the PDF
-            doc.save("response.pdf");
+
+            const img = new Image();
+            img.src = "{{ url_for('static', filename='cream_paper.jpg') }}";
+            img.onload = function () {
+                const pageWidth = doc.internal.pageSize.width;
+                const pageHeight = doc.internal.pageSize.height;
+
+                doc.addImage(img, 'JPEG', 0, 0, pageWidth, pageHeight);
+                doc.setLineHeightFactor(1.5);
+                doc.setCharSpace(0);
+                doc.setFont("Playfair", "normal");
+                doc.setFontSize(30);
+                doc.text("A journey to the past...", pageWidth / 2, 20, { align: "center" });
+
+                const margin = 15;
+                const maxWidth = pageWidth - 2 * (margin + 5);
+                const wrappedText = doc.splitTextToSize(visibleText.replace(/\s+/g, ' '), maxWidth);
+                doc.setFontSize(14);
+                const textX = (pageWidth - maxWidth) / 2;
+                doc.text(wrappedText, textX, 40, { align: "left" });
+
+                doc.save("Reflectify.pdf");
+            };
         });
-    
+            
         const themeToggleButton = document.getElementById("theme-toggle");
     
         // Apply the saved theme state from localStorage
@@ -312,14 +345,33 @@
             document.body.classList.add("bg-dark");
             document.body.classList.remove("bg-light");
             themeToggleButton.checked = true;
+            
+            // Reset Copy Text Button styling for dark mode
             copyTextButton.style.backgroundColor = ''; // Reset to default
             copyTextButton.style.color = ''; // Reset to default
+            
+            // Reset Read Aloud and Download PDF button styling for dark mode
+            readAloudButton.style.backgroundColor = ''; // Reset to default
+            readAloudButton.style.color = ''; // Reset to default
+            downloadPdfButton.style.backgroundColor = ''; // Reset to default
+            downloadPdfButton.style.color = ''; // Reset to default
+
         } else {
             document.body.classList.add("bg-light");
             document.body.classList.remove("bg-dark");
             themeToggleButton.checked = false;
+
+            // Update Copy Text Button styling for light mode
             copyTextButton.style.backgroundColor = '#add8e6'; // Baby blue
             copyTextButton.style.color = '#343a40'; // Ensure text remains visible
+
+            // Apply baby blue to Read Aloud button in light mode
+            readAloudButton.style.backgroundColor = '#add8e6'; // Baby blue
+            readAloudButton.style.color = '#343a40'; // Ensure text remains visible
+
+            // Apply baby blue to Download PDF button in light mode
+            downloadPdfButton.style.backgroundColor = '#add8e6'; // Baby blue
+            downloadPdfButton.style.color = '#343a40'; // Ensure text remains visible
         }
     
         copyTextButton.addEventListener("click", () => {

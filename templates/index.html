@@ -67,13 +67,13 @@
 
         /* Button styles (ensure same color for both themes) */
         button {
-            background-color: #007bff;
+            background-color: #343a40;
             color: white;
         }
 
         /* Toggle button styles */
         button#theme-toggle {
-            background-color: #f8f9fa;
+            background-color: #343a40;
             color: #343a40;
         }
 
@@ -156,6 +156,18 @@
         .switch input:checked + .slider:before {
             transform: translateX(26px);
         }
+
+        .btn-primary {
+            background-color: #343a40 !important; /* Dark gray */
+            border-color: #343a40 !important; /* Match border to background */
+            color: #f8f9fa !important; /* Light text for contrast */
+            transition: background-color 0.3s ease; /* Smooth transition for hover */
+        }
+
+        .btn-primary:hover {
+            background-color: #6c757d !important; /* Lighter gray on hover */
+            border-color: #6c757d !important; /* Match border to hover background */
+        }
         </style>
     </head>    
 <body class="bg-light">
@@ -182,7 +194,7 @@
                         placeholder="Loading examples..." 
                         required>
                 </div>
-                <button type="submit" class="btn btn-primary">Reflect</button>
+                <button type="submit" class="btn btn-primary">Reflect🪞</button>
             </form>
         </div>
     </div>
